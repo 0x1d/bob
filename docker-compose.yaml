@@ -1,0 +1,92 @@
+name: bob
+
+services:
+  model-server:
+    labels:
+      - "flame.type=application"
+      - "flame.name=Model Server"
+      - "flame.url=http://model-server:6060"
+    image: ghcr.io/ggml-org/llama.cpp:full-cuda
+    ports:
+      - "6060:6060"
+    volumes:
+      - ./models:/models
+      - ./config/config.generated.ini:/config/config.ini
+    command:
+      [
+        "--server",
+        "--models-dir",
+        "/models",
+        "--models-preset",
+        "/config/config.ini",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "6060",
+        "--no-warmup",
+        "--models-max",
+        "1",
+        "--tools",
+        "all",
+      ]
+    gpus: all
+    runtime: nvidia
+    shm_size: "2gb"
+
+  # One-shot sidecar that downloads every model declared in stack.yaml.
+  # Disabled during normal `up` via a profile; run with:
+  #   docker compose --profile download run --rm model-downloader
+  # Pass HF_TOKEN (env) for gated repos / rate limits.
+  model-downloader:
+    profiles: ["download"]
+    build:
+      context: ./docker
+      dockerfile: model-downloader.Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ./models:/models
+      - ./config:/config
+      - ./stack.yaml:/workspace/stack.yaml:ro
+      - ./scripts:/workspace/scripts:ro
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+    command:
+      - /workspace/scripts/bootstrap.py
+      - --config
+      - /workspace/stack.yaml
+      - --models-dir
+      - /models
+      - --config-dir
+      - /config
+      - download
+      - --verify
+
+  # Pi terminal coding agent (https://pi.dev/docs/latest), pointed at the
+  # model-server's OpenAI-compat endpoint. Config (models.json/settings.json)
+  # is generated from stack.yaml:
+  #   python3 scripts/bootstrap.py generate-pi-config
+  # and mounted read-only into ~/.pi/agent. Interactive TUI — start with:
+  #   docker compose --profile pi run --rm pi
+  # To work on a host code project, bind it as the workspace, e.g.:
+  #   docker compose --profile pi run --rm -v "$PWD:/workspace" -w /workspace pi
+  pi:
+    profiles: ["pi"]
+    build:
+      context: ./docker
+      dockerfile: pi.Dockerfile
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    volumes:
+      - ./config/pi:/home/agent/.pi/agent
+      - pi-workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}   # used by Pi's HF model search if needed
+    gpus: all            # so nvtop / CUDA tooling can see the device
+    runtime: nvidia
+    depends_on:
+      - model-server
+
+volumes:
+  pi-workspace:

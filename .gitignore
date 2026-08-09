@@ -1,0 +1,37 @@
+# Downloaded model weights (fetch via `bootstrap.py download`)
+models/
+
+# Generated llama-server preset, Pi agent config, runtime state, and secrets.
+# Regenerated from stack.yaml (generate-config / generate-pi-config) or created
+# at runtime by the pi agent (auth.json, sessions/, models-store.json, gh/, …).
+config/
+
+# Environment files — HF_TOKEN, API keys, local overrides
+.env
+.env.*
+!.env.example
+
+# Compose / k8s local overrides
+docker-compose.override.yml
+docker-compose.override.yaml
+*.local.yml
+*.local.yaml
+
+# Credentials (defense in depth; also under config/)
+**/hosts.yml
+**/*credentials*
+**/*secret*
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
