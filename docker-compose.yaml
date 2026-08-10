@@ -79,10 +79,10 @@ services:
     working_dir: /workspace
     volumes:
       - ./config/pi:/home/agent/.pi/agent
-      - pi-workspace:/workspace
+      - ./:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - HF_TOKEN=${HF_TOKEN:-}   # used by Pi's HF model search if needed
+#    environment:
+#      - HF_TOKEN=${HF_TOKEN:-}   # used by Pi's HF model search if needed
     gpus: all            # so nvtop / CUDA tooling can see the device
     runtime: nvidia
     depends_on:
