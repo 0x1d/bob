@@ -201,7 +201,9 @@ def cmd_generate_pi_config(args) -> int:
 # Maps each stack.yaml model to an OpenCode custom provider entry
 # (~/.config/opencode/opencode.json). OpenCode connects to the llama-server's
 # OpenAI-compat endpoint; multimodal models (card.multimodal) advertise both
-# text and image input.
+# text and image input. Thinking models set reasoning + interleaved so
+# OpenCode surfaces llama.cpp's reasoning_content and replays it on later turns
+# (https://opencode.ai/docs/models/, opencode.ai/config.json).
 def _opencode_model_entry(m: dict) -> dict:
     entry: dict = {
         "name": m["name"],  # llama-server preset id == stack.yaml name
@@ -212,6 +214,11 @@ def _opencode_model_entry(m: dict) -> dict:
     }
     if m.get("card", {}).get("multimodal"):
         entry["modalities"]["input"].append("image")
+    if m.get("thinking"):
+        # capability flag + field used by @ai-sdk/openai-compatible /
+        # llama-server (--reasoning-format deepseek → reasoning_content)
+        entry["reasoning"] = True
+        entry["interleaved"] = {"field": "reasoning_content"}
     return entry
 
 

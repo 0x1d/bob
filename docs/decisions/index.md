@@ -36,8 +36,3 @@ Use `DECXXX.md` with zero-padded numeric IDs.
 | ID | Title | Link |
 |----|-------|------|
 | DEC001 | Specification Organization Approach | [DEC001.md](./DEC001.md) |
-
-## Legacy Detailed Register
-
-- [`decisions.md`](./decisions.md) - detailed historical decision register kept
-  for backward compatibility.

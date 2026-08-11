@@ -1,6 +1,7 @@
 # Bob
 
-An evolving AI system. `stack.yaml` is the source of truth for models, model-server presets, and agent exposure. Generators turn that into a model-server INI, Pi config, and OpenCode config; Docker runs the server and agents.
+Bob is a self-improving AI system based on Pi agent.  
+The OpenCode agent teaches the Pi agent.
 
 ```
 stack.yaml ──generate-*──▶ config/* ──mount──▶ model-server / pi / opencode

@@ -20,6 +20,7 @@ The docs system is designed for agent-maintained continuity across sessions:
 | Design | `docs/design/` | Solution-level architecture design | area index/README when present |
 | Plans | `docs/plans/` | Execution plans linked to specs | `docs/plans/index.md` |
 | Retro | `docs/retro/` | Lessons learned and process improvements | `docs/retro/index.md` |
+| Meta | `docs/meta/` | Cross-cutting workflows and conventions | `docs/meta/index.md` |
 
 ## Ingestion Protocol (Surgical Context)
 
@@ -48,6 +49,7 @@ flowchart TD
     A --> D[decisions/index.md]
     A --> P[plans/index.md]
     A --> T[retro/index.md]
+    A --> M[meta/index.md]
 ```
 
 ## Quick Start

@@ -118,9 +118,14 @@ Writes `config/opencode/opencode.json` ([OpenCode](https://opencode.ai)).
 | stack.yaml | OpenCode field |
 |------------|----------------|
 | `name` | model key, `name` |
+| `thinking` | `reasoning: true` + `interleaved: {field: reasoning_content}` |
 | `card.multimodal` | `modalities.input` includes `"image"` |
 | `opencode.server` | `server.port` / `server.hostname` |
 | `opencode.default_model` | `model` / `small_model` |
+
+`interleaved` tells OpenCode to read/replay llama.cpp’s `reasoning_content`
+(OpenAI-compat deepseek reasoning format) so thinking survives multi-turn /
+tool-call loops.
 
 Also enables the `browsermcp` MCP server from the upstream example.
 
