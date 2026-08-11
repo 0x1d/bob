@@ -1,97 +1,136 @@
-# AGENTS.md
+# Bob
 
-## Core Principles
+Bob is a self-improving AI system based on Pi agent.  
+The OpenCode agent teaches the Pi agent.
 
-- **Naintain a mental model:** any system can be expressed as a graph that depics how and why parts of the system relate to each other. The graph representation helps to understand and traverse complex systems efficiently.
-- **Maintain consistency:** keep documentation and implementation consistent. Always update documentation before implementation. Review all affected artifacts again after implementation and align them.
-- **Mermaid diagrams**: all diagrams in markdopwn files must be Mermaid.
+## Configuration
 
-## Work Principles
+Single YAML file (`stack.yaml`) is the source of truth for which models to download, how to configure them in the model-server, and how to expose them to Pi and OpenCode coding agents. Python generator (`scripts/bootstrap.py`) turns that into a model-server preset, a Pi `models.json`, and an OpenCode `opencode.json`. Docker sidecars fetch model files and run agents.
 
-### Research
+## Control Surface
 
-- **Build context first:** Before starting any work, gather and understand the required concepts, surrounding codebase, project conventions, and related tasks. Always cite sources.
-- **Verify before assuming:** Always confirm facts through inspection; do not make assumptions.
-- **Preserve context:** When building up context from research and inspection, store facts, concepts and how things fit together as markdown files below `docs/research` folder. Research documentation must be comprehensible And consice, so that future sessions can continue working without knowledge gap. Do not write verbose docs. Use Mermaid diagrams to convey complex systems and processes.
+All system operations are performed via `ctl.sh`, the centralized control surface. Agents must interact through `ctl.sh` rather than invoking commands directly. Run `./ctl.sh help` to list available commands and their descriptions.
 
-### Plan
+Detailed stack / bootstrap / agent reference: [`docs/reference.md`](docs/reference.md).
 
-- **Plan before acting:** Always identify next steps and their prerequisites before making any changes.
-- **Decompose complex plans:** Complex tasks need to be broken down into small verifiable steps, so that issues surface early.
-- **Compose dependency graph:** Complex decomposed tasks need to be brought into a logical order for implementation. Design a direct acyclic dependency graph as a Mermaid diagram in the plan file.
-- **No arbitrary estimates:** Do not include speculative or unverified estimates in documentation.
-- **Plan with existing behavior in mind:** When planning changes, consider how they will affect existing functionality and ensure your plans preserve current behavior unless updates are explicitly required.
-- **Consider verification:** When planning work, always consider the success criteria and how the work will be vesrified.
+## Repo Layout
 
-### Implement
+```
+workspace/
+├── ctl.sh                          # control surface — prefer over direct commands
+├── stack.yaml                      # single source of truth (models + agents)
+├── config/
+│   ├── config.generated.ini        # generated preset; compose mounts as /config/config.ini
+│   ├── pi/{models,settings}.json   # generated Pi config; mounted as ~/.pi/agent
+│   └── opencode/opencode.json      # generated OpenCode config; mounted as ~/.config/opencode
+├── models/<model-dir>/*.gguf       # downloaded GGUF + mmproj files
+├── scripts/                        # ctl.sh commands + bootstrap.py
+├── scripts/build-agents.sh         # builds base → pi → opencode in order
+└── docker/
+    ├── base.Dockerfile              # shared tooling image (node:24-trixie-slim)
+    ├── pi.Dockerfile                # extends bob-agent-base
+    ├── opencode.Dockerfile          # extends bob-agent-base
+    └── model-downloader.Dockerfile
+```
 
-- **Human approval for destructive and complex actions:** Never make changes that could remove, alter, or significantly affect existing content, behavior, or architecture without explicit approval. This includes deletions, modifications, refactors, structural changes, and any action with broad or uncertain impact.
-- **Precision over verbosity:** Use targeted edits (grep + edit) rather than rewrites; keep edits minimal and unique.
-- **Document decisions:** When making a change, explain the reasoning briefly (e.g., comment or docstring). This helps future maintainers understand intent without guessing. When unsure, ask the human for advice.
-- **Incremental changes:** Favor small, isolated modifications over large refactorings; commit after each logical step.
-- **Respect existing conventions:** Do not refactor unrelated parts of a file or project; honor style, naming, and structure already in place.
-- **Small scope, large impact:** Focus changes narrowly but thoughtfully.
-- **Transparency in trade-offs:** Be explicit about why one choice over another was made.
-- **Reversibility:** Ensure any change can be undone safely (e.g., add a revert marker or keep the original nearby) before proceeding.
-- **Preserve existing behavior:** When modifying code, ensure no unintended side effects on other parts.
-- **Script complex changes:** For operations that require multiple sequential steps or involve reading/writing multiple files, prefer writing a NodeJS script to perform the task rather than chaining individual tool calls. This makes the workflow more robust, easier to understand, and simpler to debug.
+## Workflow
 
-### Verify
+1. **Generate configs** — `ctl.sh generate-config`, `ctl.sh generate-pi-config`, `ctl.sh generate-opencode-config`
+2. **Download models** — `ctl.sh download`
+3. **Start server** — `ctl.sh start`
+4. **Rebuild agents** — `ctl.sh rebuild-agents`
+5. **Run agents** — `ctl.sh` provides profiles for Pi and OpenCode
 
-- **Verifiability:** Each change should include reproducible automated verification steps (e.g., tests, CI checks) and measurable success criteria (e.g., performance thresholds, behavior checks).
-- **Verification as completion:** A task is only considered done when it has been verified and implementation scope compared to linked documents to check for implementation gaps. Gaps must be flagged, documented and surfaced to the human operator.
-- **Traceability:** Every change should be linked to its purpose (e.g., issue, PR, or ticket) so it can be traced back to context and rationale.
-- **Git as history:** Use Git commits as your work log; read them in order to understand past decisions and changes when needed.
+## Key Facts
 
-### Retrospect
+| Fact | Detail |
+|------|--------|
+| **Model-server config** | Only ever reads `config/config.generated.ini` (compose mounts it as `/config/config.ini`); no hand-maintained INI to diff |
+| **Download safety** | `download` never overwrites existing local files unless `--force` is passed; `--verify` reports size mismatches without deleting |
+| **Agent images** | Base is `bob-agent-base` (Node 24 + full dev stack); Pi and OpenCode extend it; base must be built first |
+| **Agent config dirs** | Pi: `~/.pi/agent` (auth, model-store cache persist); OpenCode: `~/.config/opencode` (auth, session persist) |
+| **Pi tools** | Auto-installs `rtk` (Rust Token Killer v0.45.0) extension on first launch; tmux `extended-keys` enabled in `/etc/tmux.conf` |
+| **OpenCode** | Web UI exposed on host port 8008; default model from `opencode.default_model` in `stack.yaml` |
+| **HF token** | `HF_TOKEN` env var forwarded to downloader for gated repos and rate-limit relief |
+| **Default model** | Falls back to the first `models:` entry in `stack.yaml` if `pi.default_model` / `opencode.default_model` unset |
+| **Profile services** | `model-downloader` and `pi` are gated behind `--profile` flags; normal `docker compose up` starts only `model-server` |
 
-- **Retrospect on conclusion:** When concluding work, do a retrospection, summarize the Achievements, list Impediments and Pitfalls, document learnings And ways to improve. link corresponding plan. Store your retrospection as markdown in `docs/retro/` as a separate file. File format: ID, Title, Spec References, Achievements, Impediments, Learnings, Date, Guidelines. File naming convention: `RETROXXX.md`.
+## Gotchas
 
-### Decisions
+- **Never overwrite existing models** — `download` respects existing local files by default; use `--force` only when intentionally re-fetching
+- **Rebuild base before agents** — agent Dockerfiles extend `bob-agent-base`; building pi/opencode alone will fail until base exists
+- **HF token for gated repos** — export `HF_TOKEN` before running the downloader sidecar if models require auth
+- **Size mismatches are reported, not fixed** — `download --verify` prints `exists (size X != expected Y; leaving file, remove it to re-download)` and keeps the local file; you must delete and re-download if you want a clean fetch
+- **Pi tmux config is baked in** — `extended-keys` config is in `/etc/tmux.conf` (image layer); host mount overrides cannot clobber it
+- **OpenCode port 8008** — the web UI binds to `0.0.0.0:8008` by default; this is exposed on the host when running with `--profile opencode`
 
-- **Document architectural decisions:** Store design decisions in `docs/decisions/` as separate files. Each decision must be a separate file with format: ID, Title, Context, Options Considered, Decision Made, Rationale, Consequences, References. File naming convention: `DECXXX.md`.
+## Architecture
 
-### Self-Improve
+The system is a 4-containers compose with profile gating:
 
-- **Consolidate learnings:** review past retrospectives, identify reoccuring patterns and issues. distill knowledge, solutions, workflows and automations, in order to handle known situations faster with increased determinism.
+```
+model-server ──network──▶ model-downloader (profile: download)
+      │
+      ├── OpenAI-compat──▶ pi (profile: pi)
+      └── OpenAI-compat──▶ opencode (profile: opencode)
+```
 
-### Project Management
+- **model-server** — llama.cpp model server, config driven by `config/config.generated.ini`
+- **model-downloader** — pure Python + pyyaml sidecar; mounts `./models:/models`, `./config:/config`
+- **pi** — Pi terminal coding agent; uses `bob-stack` provider pointing at `opencode.base_url`
+- **opencode** — OpenCode agent; uses `llama-server` provider, web UI on `0.0.0.0:8008`
 
-The Bob system documentation is organized into distinct areas, each with a specific purpose. These areas work together to ensure systematic, traceable, and high-quality development:
+All three agents share `bob-agent-base` image (Node 24-trixie-slim with curated dev/research toolset).
 
-**Specs (docs/specs/)**
-- **Purpose:** Define *what* needs to be built by specifying requirements, interfaces, and success criteria for each component of the Bob system
-- **How it fits together:** Specs provide the target specification for implementation, serving as the contract between design and code
+## Model Cards (per `stack.yaml` `card:` blocks)
 
-**Design (docs/design/)**
-- **Purpose:** Determine *how* to build something by locking in architecture and tech stack decisions
-- **How it fits together:** Designs are created based on specs and become the blueprint for implementation
+| Model | Card recommends |
+|-------|------------------|
+| Qwen3.5-4B-NoThink | non-thinking: temp 0.7 / top-p 0.8; ≥128K ctx; multimodal; MTP support |
+| Qwen3.5-9B-Uncensored-Q4_K_M | thinking: temp 0.6 / top-p 0.95 / top-k 20; ≥128K ctx; multimodal; MTP |
+| Qwopus3.5-9B-Coder-MTP-Q4_K_M | temp 1.0 / top-p 0.95 / top-k 20; MTP draft=2 (speculative); reasoning; multimodal; tool calling |
+| Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K | temp 0.6 / top-p 0.95 / top-k 20 / repeat-penalty 1.05; 1M ctx via YaRN; reasoning; multimodal; tool calling |
 
-**Decisions (docs/decisions/)**
-- **Purpose:** Record architectural decisions made during development, capturing the context, trade-offs, and rationale behind them
-- **How it fits together:** Decisions prevent knowledge loss and provide context for future development
+All cards warn: greedy/very-low-temp degenerates into repetition loops on reasoning models — keep `temp ≥ 0.6`.
 
-**Research (docs/research/)**
-- **Purpose:** Build and preserve knowledge about concepts, the codebase, and how components fit together
-- **How it fits together:** Research provides the context needed to make informed decisions and write accurate specs
+## Documentation Standards
 
-**Plans (docs/plans/)**
-- **Purpose:** Plan and coordinate implementation work, breaking down complex tasks into manageable steps
-- **How it fits together:** Plans ensure work is done in the right order and with proper verification
+The `docs/` folder follows a 7-stage lifecycle:
 
-**Retrospectives (docs/retro/)**
-- **Purpose:** Capture lessons learned and process improvements after completing work
-- **How it fits together:** Retrospectives feed back into decisions, research, and specs to improve future work
+1. **Research** (`docs/research/`) — document concepts, cite and link sources, link to specs
+2. **Specs** (`docs/specs/`) — define what needs to be built, interfaces, success criteria
+3. **Decisions** (`docs/decisions/`) — record architectural decisions with context, options, rationale
+4. **Design** (`docs/design/`) — lock in architecture and tech stack choices
+5. **Plans** (`docs/plans/`) — coordinate implementation work; link to specs
+6. **Retrospectives** (`docs/retro/`) — capture lessons after work; link corresponding plan
+7. **Index files** — each folder has a `README.md` linking all items in it
 
-**Readme Files:**
-- [Specs README](./docs/specs/README.md)
-- [Design README](./docs/design/README.md)
-- [Decisions README](./docs/decisions/README.md)
-- [Research README](./docs/research/README.md)
-- [Plans README](./docs/plans/README.md)
-- [Retrospectives README](./docs/retro/README.md)
+File naming conventions:
+- Specs: domain + description (e.g., `memory/procedural.md`)
+- Decisions: `DEC001.md`, `DEC002.md`, etc.
+- Plans: `PLAN001.md`, `PLAN002.md`, etc.
+- Retrospectives: `RETRO001.md`, `RETRO002.md`, etc.
+- Research: `RES001.md`, `RES002.md`, etc.
 
-**Workflow:**
-1. Research concepts and context → 2. Write specs defining requirements → 3. Make decisions about implementation → 4. Create plans for the work → 5. Implement → 6. Retrospect and improve → 7. Update research and specs
+## Documentation Entry Protocol (Required)
 
-This cycle ensures each area serves its purpose and the system as a whole improves continuously.
+`AGENTS.md` is the task entrypoint for agent sessions. For documentation work,
+agents must use a surgical ingestion flow to stay context-efficient:
+
+1. Open `docs/index.md` for lifecycle overview and navigation rules.
+2. Open exactly one relevant area index (`docs/specs/index.md`,
+   `docs/plans/index.md`, `docs/decisions/index.md`, `docs/research/index.md`,
+   `docs/retro/index.md`).
+3. Read only linked documents required for the active task.
+4. Update only impacted canonical `index.md` files and preserve legacy alias
+   files (`README.md`, `SUMMARY.md`) as lightweight pointers.
+
+### Consolidation Rule
+
+Within each docs area, `index.md` is the canonical source. If an area contains
+`README.md` and/or `SUMMARY.md`, they must not duplicate long-form content.
+Keep them as compatibility entrypoints that point to the area `index.md`.
+
+### Diagram Rule
+
+All diagrams added or updated in docs must use mermaid.

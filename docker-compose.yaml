@@ -104,10 +104,12 @@ services:
     working_dir: /workspace
     volumes:
       - ./config/opencode:/home/agent/.config/opencode
+      - ./config/opencode-data:/home/agent/.local/share/opencode
       - ./:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - OPENCODE_CONFIG=/home/agent/.config/opencode/opencode.json
+      - OPENCODE_DATA_DIR=/home/agent/.local/share/opencode
     gpus: all            # so nvtop / CUDA tooling can see the device
     runtime: nvidia
     depends_on:

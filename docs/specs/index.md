@@ -1,6 +1,11 @@
 # Bob System Specifications Index
 
-This repository contains the complete specifications for the Bob (Autonomous Self-Learning AI Agent) system, organized by domain and with cross-references to track interdependencies.
+Canonical index for the Bob specification area.
+
+## Scope
+
+This area defines what must be built: component requirements, interfaces, data
+contracts, success criteria, and open questions for the Bob system.
 
 ## Quick Navigation
 
@@ -17,123 +22,201 @@ This repository contains the complete specifications for the Bob (Autonomous Sel
 | Observability & Debugging | [observability/](./observability/README.md) | 3 specs |
 | Deployment Considerations | [deployment/](./deployment/README.md) | 3 specs |
 
-## Total Specifications: 34
+**Total specifications:** 34
+
+## Task-Driven Ingestion
+
+1. Read this file for domain map and contribution rules.
+2. Open the target domain README and only the specs needed for the task.
+3. Follow links to related `decisions`, `plans`, and `research` only when needed.
+4. Update this index when adding/removing specs or changing ownership.
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Bob System Architecture                          │
-├──────────┬─────────┬─────────┬─────────┬─────────┬───────────┤
-│ Learning │ Memory │ Reasoning │ Percep │ Human  │ Evaluation │
-│   Core   │Systems │ & Plan. │& Env.  │-the-Loop│ & Metrics │
-├──────────┼─────────┼─────────┼─────────┼─────────┼───────────┤
-│ Safety   │ Infra. │ Observ. │ Deploym.└─────────┘  Feedback │
-│ & Align. │& Res.  │& Debug  │  ment    └─────────┘  Loop    │
-└──────────┴─────────┴─────────┴─────────┴─────────┴───────────┘
+```mermaid
+flowchart LR
+    L[Learning Core] --> M[Memory Systems]
+    R[Reasoning and Planning] --> M
+    P[Perception and Environment] --> R
+    H[Human-in-the-Loop] --> E[Evaluation and Metrics]
+    S[Safety and Alignment] --> ALL[All Domains]
+    I[Infrastructure and Resources] --> ALL
+    O[Observability and Debugging] --> ALL
+    D[Deployment] --> ALL
 ```
 
 ## Cross-Spec Dependencies
 
-All specs are interconnected through:
+- **Memory systems:** episodic, semantic, and procedural memory are foundational.
+- **Knowledge base:** every domain references semantic/episodic/procedural state.
+- **Evaluation & metrics:** shared performance and self-evaluation loops.
+- **Infrastructure:** shared compute, data, and storage constraints.
+- **Observability:** shared logging, monitoring, and debugging visibility.
 
-- **Memory Systems:** Episodic, semantic, and procedural memories shared across domains
-- **Knowledge Base:** All specs reference knowledge stored in semantic/episodic/procedural memories
-- **Evaluation & Metrics:** Performance tracking and self-evaluation shared across domains
-- **Infrastructure:** Compute, data, and storage shared resources
-- **Observability:** Logging, monitoring, and debugging tools
-
-## Working with This Repository
+## Working with Specs
 
 ### For Readers
 
-1. **Understand the Big Picture:** Start with `index.md` and the main README
-2. **Find Your Domain:** Navigate to the relevant domain folder
-3. **Read the Overview:** Understand what the component does
-4. **Check Requirements:** See what needs to be implemented
-5. **Review Interfaces:** Understand data contracts and APIs
-6. **Read Success Criteria:** Know the measurable goals
+1. Understand the big picture in this index.
+2. Find your domain and read domain overview.
+3. Read requirements, interfaces, and success criteria.
+4. Follow cross-references only for directly impacted dependencies.
 
 ### For Contributors
 
-1. **Read Existing Specs:** Understand the format and style
-2. **Identify Gaps:** Find areas needing specification
-3. **Write the Spec:** Use the template from existing specs
-4. **Update Indexes:** Add the new spec to relevant indexes
-5. **Test Cross-References:** Ensure links work correctly
+1. Write/update spec content before implementation work.
+2. Keep specs technology-agnostic unless a decision requires specificity.
+3. Link related specs and lifecycle docs using relative markdown links.
+4. Update this index and verify links after changes.
 
 ### For Project Managers
 
-1. **Track Dependencies:** Use cross-spec references to identify coupling
-2. **Plan Reviews:** Schedule review sessions for related specs
-3. **Monitor Progress:** Track spec completion against requirements
-4. **Update Indexes:** Maintain the indexes as specs are created
+1. Use domain map to identify dependency coupling.
+2. Plan parallel/spec review sequencing from cross-dependencies.
+3. Track progress by domain coverage and acceptance criteria closure.
 
-## Specification Template
+## Specification Format
 
-Each spec should contain:
+Each spec file should include:
+
+1. **Overview** - what the component does and why it matters.
+2. **Requirements** - functional and non-functional requirements.
+3. **Interfaces** - APIs, data contracts, and external dependencies.
+4. **Success criteria** - measurable acceptance criteria.
+5. **Open questions** - unresolved design/implementation questions.
+6. **References** - citations, research, and related docs.
+
+Template:
 
 ```markdown
 # [Component] Specification
 
 ## Overview
-
 [What does this component do and why it matters]
 
 ## Requirements
-
 - [ ] Requirement 1
 - [ ] Requirement 2
-- [ ] Requirement 3
 
 ## Interfaces
-
 ### External Interfaces
-
-```[API/Interface definition]
-```
+[API/Interface definition]
 
 ### Internal Interfaces
-
-```[Internal interface definition]
-```
+[Internal interface definition]
 
 ## Data Contracts
-
 ### Schema 1
-
-```[Data schema definition]
-```
+[Data schema definition]
 
 ## Success Criteria
-
-1. **Metric 1:** Target value
-2. **Metric 2:** Target value
-3. **Metric 3:** Target value
+1. Metric 1: Target value
+2. Metric 2: Target value
 
 ## Open Questions
-
 1. Question 1?
-2. Question 2?
 
 ## References
-
 - [Citation 1]
-- [Citation 2]
 ```
 
-## Contributing Guidelines
+## Specification Inventory
 
-1. **Write Specs Before Implementation:** Specs provide the specification-first approach
-2. **Keep Specs Technology-Agnostic:** Don't commit to specific frameworks unless required
-3. **Use Clear Cross-References:** Link related specs using `[#](path/to/spec)` syntax
-4. **Maintain Consistent Style:** Follow the existing formatting conventions
-5. **Review Cross-Dependencies:** Ensure specs don't create unnecessary coupling
+### Learning Core (4)
 
-## License
+| Name | File | Key Topics |
+|---|---|---|
+| Self-Supervised Learning | `learning/self-supervised.md` | contrastive learning, embeddings, curriculum learning |
+| Reinforcement Learning | `learning/reinforcement.md` | rewards, exploration, policy optimization, RLHF |
+| Online/Incremental Learning | `learning/online-learning.md` | continual learning, replay, PEFT, active learning |
+| Transfer Learning | `learning/transfer-learning.md` | adaptation, multi-task, few-shot, distillation |
 
-[Insert license information here]
+### Memory Systems (3)
 
-## Acknowledgments
+| Name | File | Key Topics |
+|---|---|---|
+| Episodic Memory | `memory/episodic.md` | consolidation, forgetting, temporal indexing |
+| Semantic Memory | `memory/semantic.md` | knowledge graphs, ontology, fact verification |
+| Procedural Memory | `memory/procedural.md` | skills, heuristics, triggering |
 
-[Insert acknowledgments here]
+### Reasoning & Planning (4)
+
+| Name | File | Key Topics |
+|---|---|---|
+| Logical Reasoning | `reasoning/logical.md` | deductive/inductive/abductive reasoning |
+| Problem Solving | `reasoning/problem-solving.md` | decomposition, search, constraints |
+| Strategic Planning | `reasoning/strategic-planning.md` | horizon management, monitoring |
+| Causal Reasoning | `reasoning/causal.md` | counterfactuals, do-calculus, causal discovery |
+
+### Perception & Environment (3)
+
+| Name | File | Key Topics |
+|---|---|---|
+| Multimodal Input | `perception/multimodal.md` | NLU, vision, audio, fusion |
+| Action Generation | `perception/actions.md` | tool calling, API interaction, code generation |
+| Environmental Understanding | `perception/environment.md` | state estimation, anomaly detection |
+
+### Human-in-the-Loop (3)
+
+| Name | File | Key Topics |
+|---|---|---|
+| User Feedback | `human-loop/feedback.md` | preference learning, calibration |
+| Communication | `human-loop/communication.md` | dialogue, explanation, collaboration |
+| Value Alignment | `human-loop/value-alignment.md` | constitutional alignment, ethics |
+
+### Evaluation & Metrics (3)
+
+| Name | File | Key Topics |
+|---|---|---|
+| Performance Metrics | `evaluation/performance.md` | quality metrics, robustness tracking |
+| Self-Evaluation | `evaluation/self-evaluation.md` | uncertainty, meta-evaluation |
+| Benchmarking | `evaluation/benchmarking.md` | suites, regression tests, ablations |
+
+### Safety & Alignment (4)
+
+| Name | File | Key Topics |
+|---|---|---|
+| Robustness | `safety/robustness.md` | adversarial and OOD resilience |
+| Bias Mitigation | `safety/bias.md` | fairness monitoring and mitigation |
+| Explainability | `safety/explainability.md` | attribution and decision traces |
+| Value Alignment (Safety) | `safety/value-alignment.md` | reward hacking prevention, ethics |
+
+### Infrastructure & Resources (3)
+
+| Name | File | Key Topics |
+|---|---|---|
+| Compute Management | `infrastructure/compute.md` | serving, allocation, optimization |
+| Data Management | `infrastructure/data.md` | collection, privacy, lifecycle |
+| Storage Systems | `infrastructure/storage.md` | vector/graph storage, retrieval |
+
+### Observability & Debugging (3)
+
+| Name | File | Key Topics |
+|---|---|---|
+| Logging | `observability/logging.md` | structured traces, memory snapshots |
+| Monitoring | `observability/monitoring.md` | dashboards, anomalies, health |
+| Debugging Tools | `observability/debugging.md` | inspection, counterfactual analysis |
+
+### Deployment Considerations (3)
+
+| Name | File | Key Topics |
+|---|---|---|
+| Scalability | `deployment/scalability.md` | horizontal scaling, load balancing |
+| Reliability | `deployment/reliability.md` | fault tolerance, graceful degradation |
+| Updates & Versioning | `deployment/updates.md` | release pipelines, rollback, flags |
+
+## Summary Statistics
+
+- **Total specifications:** 34
+- **Total domains:** 10
+- **Total requirements:** 250+ unique requirements
+- **Total open questions:** 100+
+- **Total cross-references:** 150+
+
+## Related Documentation
+
+- [`../index.md`](../index.md) - docs system entrypoint
+- [`../decisions/index.md`](../decisions/index.md) - architecture decisions
+- [`../plans/index.md`](../plans/index.md) - implementation plan index
+- [`../research/index.md`](../research/index.md) - research sources and findings
+- [`../retro/index.md`](../retro/index.md) - execution learnings
