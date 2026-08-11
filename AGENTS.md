@@ -2,33 +2,26 @@
 
 ## Core Principles
 
-**Naintain a mental model:** any system can be expressed as a graph that depics how and why parts of the system relate to each other. The graph representation helps to understand and traverse complex systems efficiently.
-**Maintain consistency:** keep documentation and implementation consistent. Always update documentation before implementation. Review all affected artifacts again after implementation and align them.
+- **Naintain a mental model:** any system can be expressed as a graph that depics how and why parts of the system relate to each other. The graph representation helps to understand and traverse complex systems efficiently.
+- **Maintain consistency:** keep documentation and implementation consistent. Always update documentation before implementation. Review all affected artifacts again after implementation and align them.
+- **Mermaid diagrams**: all diagrams in markdopwn files must be Mermaid.
 
 ## Work Principles
-
-### Specify
-
-- **Specify requirements:** Write down requirements below `docs/specs/` folder. The specification serves as neutral basis to build a shared understanding of the upcoming changes, as well as building up factual domain knowledge, so that human and agent can reason about and iterate on the requirement in order to refine and find the most suitable solution and lock in facts. The requirements do not yet define any target technology if not explicitly requested from the operator.
-- **Design and decide:** based on the specs, design documents are created  below `docs/design/` folder. The design locks in architecture and tech stack for the given requirement. 
-- **Track decisions;** All decisions that human and agents make,must be tracked in`docs/decision/` folder and referenced in design docs where the decision is applied. Each desicion must provide context, outcome, rational and consequences. The decision must link the design documents that required the decision. Keep a decision index file up-to-date as short reference for finding decisions quickly.
 
 ### Research
 
 - **Build context first:** Before starting any work, gather and understand the required concepts, surrounding codebase, project conventions, and related tasks. Always cite sources.
 - **Verify before assuming:** Always confirm facts through inspection; do not make assumptions.
-- **Preserve context:** When building up context from research and inspection, store facts, concepts and how things fit together as makrdown file below `docs/research` folder. Research documentation must be comprehensible And consice, so that future sessions can continue working without knowledge gap. Do not write verbose docs. Use Mermaid diagrams to convey complex systems and processes.
+- **Preserve context:** When building up context from research and inspection, store facts, concepts and how things fit together as markdown files below `docs/research` folder. Research documentation must be comprehensible And consice, so that future sessions can continue working without knowledge gap. Do not write verbose docs. Use Mermaid diagrams to convey complex systems and processes.
 
 ### Plan
 
 - **Plan before acting:** Always identify next steps and their prerequisites before making any changes.
-- **Document plan:** When you are tasked with a complex requirement, write down all your planning work into a markdown file in `plans/` folder. Link all dependent specs and reseach documents.
-- **Track plans:** When creating a plan, add it to `docs/plans/index.md`, reference the plan file along a short title of the planned task, as well as the status of the task (review | in progress | done). The plan index must be kept up to date.
 - **Decompose complex plans:** Complex tasks need to be broken down into small verifiable steps, so that issues surface early.
 - **Compose dependency graph:** Complex decomposed tasks need to be brought into a logical order for implementation. Design a direct acyclic dependency graph as a Mermaid diagram in the plan file.
 - **No arbitrary estimates:** Do not include speculative or unverified estimates in documentation.
 - **Plan with existing behavior in mind:** When planning changes, consider how they will affect existing functionality and ensure your plans preserve current behavior unless updates are explicitly required.
-- **Consider verification:** When planning work, always consider the success criteria and how the work will be verified.
+- **Consider verification:** When planning work, always consider the success criteria and how the work will be vesrified.
 
 ### Implement
 
@@ -52,8 +45,53 @@
 
 ### Retrospect
 
-- **Retrospect on conclusion:** When concluding work, do a retrospection, summarize the Achievements, list Impediments and Pitfalls, document learnings And ways to improve. link corresponding plan. Store your retrospection as markdown below `docs/retro/` folder. Extract reusable scripts for complex tasks where probability of doing it again is high. Update facts and documentation, when new insights were made or new truths discovered.
+- **Retrospect on conclusion:** When concluding work, do a retrospection, summarize the Achievements, list Impediments and Pitfalls, document learnings And ways to improve. link corresponding plan. Store your retrospection as markdown in `docs/retro/` as a separate file. File format: ID, Title, Spec References, Achievements, Impediments, Learnings, Date, Guidelines. File naming convention: `RETROXXX.md`.
+
+### Decisions
+
+- **Document architectural decisions:** Store design decisions in `docs/decisions/` as separate files. Each decision must be a separate file with format: ID, Title, Context, Options Considered, Decision Made, Rationale, Consequences, References. File naming convention: `DECXXX.md`.
 
 ### Self-Improve
 
 - **Consolidate learnings:** review past retrospectives, identify reoccuring patterns and issues. distill knowledge, solutions, workflows and automations, in order to handle known situations faster with increased determinism.
+
+### Project Management
+
+The Bob system documentation is organized into distinct areas, each with a specific purpose. These areas work together to ensure systematic, traceable, and high-quality development:
+
+**Specs (docs/specs/)**
+- **Purpose:** Define *what* needs to be built by specifying requirements, interfaces, and success criteria for each component of the Bob system
+- **How it fits together:** Specs provide the target specification for implementation, serving as the contract between design and code
+
+**Design (docs/design/)**
+- **Purpose:** Determine *how* to build something by locking in architecture and tech stack decisions
+- **How it fits together:** Designs are created based on specs and become the blueprint for implementation
+
+**Decisions (docs/decisions/)**
+- **Purpose:** Record architectural decisions made during development, capturing the context, trade-offs, and rationale behind them
+- **How it fits together:** Decisions prevent knowledge loss and provide context for future development
+
+**Research (docs/research/)**
+- **Purpose:** Build and preserve knowledge about concepts, the codebase, and how components fit together
+- **How it fits together:** Research provides the context needed to make informed decisions and write accurate specs
+
+**Plans (docs/plans/)**
+- **Purpose:** Plan and coordinate implementation work, breaking down complex tasks into manageable steps
+- **How it fits together:** Plans ensure work is done in the right order and with proper verification
+
+**Retrospectives (docs/retro/)**
+- **Purpose:** Capture lessons learned and process improvements after completing work
+- **How it fits together:** Retrospectives feed back into decisions, research, and specs to improve future work
+
+**Readme Files:**
+- [Specs README](./docs/specs/README.md)
+- [Design README](./docs/design/README.md)
+- [Decisions README](./docs/decisions/README.md)
+- [Research README](./docs/research/README.md)
+- [Plans README](./docs/plans/README.md)
+- [Retrospectives README](./docs/retro/README.md)
+
+**Workflow:**
+1. Research concepts and context → 2. Write specs defining requirements → 3. Make decisions about implementation → 4. Create plans for the work → 5. Implement → 6. Retrospect and improve → 7. Update research and specs
+
+This cycle ensures each area serves its purpose and the system as a whole improves continuously.
