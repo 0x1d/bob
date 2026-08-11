@@ -2,35 +2,41 @@
 
 A self-bootstrapping llama.cpp deployment: one YAML file (`stack.yaml`) is the
 single source of truth for which models to download, how to configure them in
-the model-server, and how to expose them to the Pi terminal coding agent. A
+the model-server, and how to expose them to the Pi and OpenCode coding agents. A
 Python generator (`scripts/bootstrap.py`) turns that into a model-server
-models-preset INI and a Pi `models.json`, and Docker sidecars fetch the model
-files and run the agent.
+models-preset INI, a Pi `models.json`, and an OpenCode `opencode.json`. Docker
+sidecars fetch the model files and run the agents.
 
 ```
 stack.yaml ──generate-config────▶ config/config.generated.ini ──mount──▶ model-server
      │                                       (mounts as /config/config.ini)
-     ├──generate-pi-config──▶ config/pi/{models,settings}.json ──mount──▶ pi agent
-     └──download──▶ models/*.gguf ──mount──┐
-            ▲                                 │
-            │  profiles: [download]          │      profiles: [pi]
-            model-downloader sidecar          pi agent (TUI container)
-            (pure python + pyyaml)            (@earendil-works/pi-coding-agent)
+      ├──generate-pi-config──▶ config/pi/{models,settings}.json ──mount──▶ pi agent
+      ├──generate-opencode-config──▶ config/opencode/opencode.json ──mount──▶ opencode agent
+      └──download──▶ models/*.gguf ──mount──┐
+             ▲                                 │
+             │  profiles: [download]          │      profiles: [pi|opencode]
+             model-downloader sidecar          pi / opencode agent containers
+             (pure python + pyyaml)            (share bob-agent-base image)
 ```
 
 ## Repository layout
 
 ```
 bob/
-├── stack.yaml                       # single source of truth (models + config + pi)
+├── stack.yaml                       # single source of truth (models + agents)
 ├── config/
 │   ├── config.generated.ini        # generated preset; compose mounts as /config/config.ini
-│   └── pi/{models,settings}.json   # generated Pi agent config; mounted as ~/.pi/agent
+│   ├── pi/{models,settings}.json   # generated Pi agent config; mounted as ~/.pi/agent
+│   └── opencode/opencode.json      # generated OpenCode config; mounted as ~/.config/opencode
 ├── models/<model-dir>/*.gguf        # downloaded model + mmproj files
-├── scripts/bootstrap.py             # generate-config | generate-pi-config | download | status
-├── docker/model-downloader.Dockerfile
-├── docker/pi.Dockerfile
-└── docker-compose.yaml              # model-server + model-downloader + pi (profiled)
+├── scripts/bootstrap.py             # generate-config | generate-*-config | download | status
+├── scripts/build-agents.sh          # build shared base + agent images in order
+├── docker/
+│   ├── base.Dockerfile              # shared tooling image for all agents
+│   ├── pi.Dockerfile                # Pi agent (extends bob-agent-base)
+│   ├── opencode.Dockerfile          # OpenCode agent (extends bob-agent-base)
+│   └── model-downloader.Dockerfile
+└── docker-compose.yaml              # model-server + model-downloader + agents (profiled)
 ```
 
 ## Quick start
@@ -42,9 +48,10 @@ to diff or promote. `stack.yaml` is the only thing you edit.
 ```bash
 cd /home/master/src/bob
 
-# 1. Generate the model-server preset + Pi agent config from stack.yaml
+# 1. Generate the model-server preset + agent configs from stack.yaml
 python3 scripts/bootstrap.py generate-config
 python3 scripts/bootstrap.py generate-pi-config
+python3 scripts/bootstrap.py generate-opencode-config
 
 # 2. Fetch any missing models via the sidecar (see "Downloading models")
 docker compose --profile download run --rm model-downloader
@@ -52,8 +59,9 @@ docker compose --profile download run --rm model-downloader
 # 3. (Re)start the server
 docker compose up -d model-server
 
-# 4. Run the Pi agent (see "Pi agent")
+# 4. Run an agent (see "Pi agent" / "OpenCode agent")
 docker compose --profile pi run --rm pi
+docker compose --profile opencode up -d opencode
 ```
 
 To inspect what's on disk at any time:
@@ -66,10 +74,9 @@ python3 scripts/bootstrap.py status --verify  # also fetch HF sizes, show match
 ## `stack.yaml` — the single source of truth
 
 `stack.yaml` is split into top-level concerns so it can grow beyond a model
-server. `stack:` holds shared paths, `huggingface:` the HF connection, and
-`models:` is the model-server model roster. Future additions (e.g. `agents:`
-to wire CLI AI agents that reference a model by its `name`) slot in alongside
-`models:` without disturbing it.
+server. `stack:` holds shared paths, `huggingface:` the HF connection,
+`models:` is the model-server model roster, and `pi:` / `opencode:` configure
+the agent containers that talk to the model-server.
 
 Each entry under `models:` declares one model — both its download source and
 its model-server preset entry:
@@ -138,6 +145,16 @@ The top-level `pi:` block configures the Pi agent connection:
 | `pi.default_model`  | Model `name` selected by default in Pi's `/model` (falls back to the first entry in `models:` if unset) |
 | `pi.api_key_env`    | Optional; env var whose value becomes `apiKey`. Unset → dummy `"none"` (the server has no auth) |
 
+The top-level `opencode:` block configures the OpenCode agent connection:
+
+| field          | meaning |
+|----------------|---------|
+| `opencode.provider`      | Provider key written into `opencode.json` (default `llama-server`) |
+| `opencode.base_url`      | OpenAI-compat endpoint reachable from the opencode container (default `http://model-server:6060/v1`) |
+| `opencode.default_model`  | Default model selected on first launch (falls back to the first entry in `models:` if unset) |
+| `opencode.api_key_env`    | Optional; env var whose value is injected into the provider options. Unset → no key (the server has no auth) |
+| `opencode.server`         | `port` / `hostname` for the OpenCode web UI server (default `{"port": 8008, "hostname": "0.0.0.0"}`) |
+
 ## bootstrap.py reference
 
 `bootstrap.py --config <path>` accepts global `--models-dir` / `--config-dir`
@@ -183,6 +200,28 @@ direct API callers get them too. Provider `compat` sets
 `supportsDeveloperRole: false` / `supportsReasoningEffort: false` (local
 llama.cpp ignores those). The provider `apiKey` is the dummy `"none"` (the
 server has no auth) so models appear in Pi's `/model`.
+
+### `generate-opencode-config`
+
+```
+python3 scripts/bootstrap.py generate-opencode-config
+```
+
+Writes `<host_config_dir>/opencode/opencode.json` for the OpenCode agent
+(https://opencode.ai). One OpenCode custom provider (`@ai-sdk/openai-compatible`)
+points at `opencode.base_url`; every stack.yaml model becomes an OpenCode model
+entry. The mapping from the model-server preset to OpenCode:
+
+| stack.yaml source            | OpenCode field |
+|------------------------------|----------------|
+| `name`                       | model key, `name` (matches the model-server preset id) |
+| `card.multimodal`            | `modalities.input` gains `"image"` in addition to `"text"` |
+| `opencode.server`            | `server.port` / `server.hostname` |
+| `opencode.default_model`     | `model` / `small_model` |
+
+The provider `options.baseURL` points at the model-server; no `apiKey` is set
+unless `opencode.api_key_env` is configured. The generated config also enables
+the `browsermcp` MCP server from the upstream OpenCode example.
 
 ### `download`
 
@@ -277,32 +316,40 @@ export HF_TOKEN=hf_xxx
 docker compose --profile download run --rm -e HF_TOKEN model-downloader
 ```
 
-## Pi agent
+## Agent containers
 
-The `pi` service (profile `pi`) runs the Pi terminal coding agent
-(`@earendil-works/pi-coding-agent`, https://pi.dev/docs/latest) in a container.
-It talks to the model-server via the OpenAI-compat endpoint, and its model list
-+ per-model sampling come straight from `stack.yaml` via
-`generate-pi-config` (see the mapping table above). The `pi` service is gated
-behind `profiles: [pi]`, so normal `docker compose up` does not start it.
+Both the Pi and OpenCode agents run from a shared base image (`bob-agent-base`,
+built from `docker/base.Dockerfile`). The base image is `node:24-trixie-slim`
+(Node 24 LTS on Debian 13 trixie) and ships a curated dev / research / analysis
+toolset so agents can edit, build, inspect, and probe local and remote systems
+from inside the container. Agent-specific packages and entrypoints are layered
+on top in `docker/pi.Dockerfile` and `docker/opencode.Dockerfile`.
 
-The `pi` image (`docker/pi.Dockerfile`, base `node:24-trixie-slim` = Node 24 LTS
-v24.19.x on Debian 13 trixie; satisfies the Pi agent's `engines.node >= 22.19.0`)
-ships a curated dev / research / analysis toolset so the agent can edit, build,
-inspect, and probe local and remote systems from inside the container:
+Because the agent Dockerfiles reference the local `bob-agent-base` image, the
+base must be built before the agent images:
+
+```bash
+# build base + pi + opencode in the correct order
+./scripts/build-agents.sh
+
+# or manually
+docker build -t bob-agent-base -f docker/base.Dockerfile docker/
+docker compose --profile pi build pi
+docker compose --profile opencode build opencode
+```
+
+Shared toolset (available in every agent container):
 
 - **token / context:** `rtk` (Rust Token Killer v0.45.0, https://rtk-ai.app) —
   compresses CLI output (~60-90% fewer tokens) before it reaches the model.
-  Wired into Pi via an auto-installed extension; see "Pi agent modifications" below.
+  Wired into Pi via an auto-installed extension; OpenCode can call it directly.
 - **build & vcs:** `git`, `build-essential`, `make`, `pkg-config`, `gcc/g++`,
-  `gh` (GitHub CLI 2.46.0; auth persists in the mounted agent dir — see
-  "Pi agent modifications")
+  `gh` (GitHub CLI 2.46.0; auth persists in the mounted agent dir)
 - **editors / pagers:** `vim` (→`vim.tiny`, the default `EDITOR`/`VISUAL`), `less`; `PAGER`/`LESS` preset
 - **text / data:** `ripgrep`, `fd` (→`fdfind`), `fzf`, `jq`, `yq` (mikefarah/yq v4.53.3), `xmlstarlet`, `bc`, `file`, `tree`
 - **archive / sync:** `curl`, `wget`, `ca-certificates`, `rsync`, `zip`, `unzip`, `tar`
 - **monitoring:** `htop` (CPU/mem), `nvtop` (NVIDIA/AMD/Intel GPU top, 3.3.2 AppImage extracted at build time; needs the compose `gpus: all`)
-- **shells / multiplex:** `tmux`, `bash-completion`. (tmux config is a Pi
-  modification — see "Pi agent modifications" below.)
+- **shells / multiplex:** `tmux`, `bash-completion`
 - **networking & analysis:** `dig`/`host`/`nslookup` (dnsutils), `ip`/`ss` (iproute2),
   `nc` (netcat-openbsd), `traceroute`, `tcpdump`, `nmap`, `ssh`, `lsof`, `ps`/`top` (procps),
   `hexdump`/`column` (bsdmainutils)
@@ -318,23 +365,35 @@ inspect, and probe local and remote systems from inside the container:
 - **runtime helper:** `libfuse2` (AppImage unpack fallback)
 
 `GIT_TERMINAL_PROMPT=0` is set so `git` fails loudly on missing creds instead
-of hanging the agent on a prompt. Rebuild after editing the Dockerfile:
+of hanging the agent on a prompt.
 
-```bash
-docker compose --profile pi build pi
-```
+> **Keep this list in sync.** When you add or remove a tool in
+> `docker/base.Dockerfile`, update the bullet list above in the same change —
+> it is the contract for what every agent container can assume is available.
+> The Dockerfile's header comment groups are the source of truth; this README
+> list should mirror them exactly.
 
-To inspect what's installed:
+To inspect what's installed in a given agent image:
 
 ```bash
 docker run --rm --entrypoint bash bob-pi -lc 'command -v git rg fd yq nmap tcpdump dig jq nvtop htop rtk gh terraform vault ansible docker kubectl helm kubectx kubens k9s kustomize stern k3d argocd velero kubeseal'
 ```
 
-> **Keep this list in sync.** When you add or remove a tool in
-> `docker/pi.Dockerfile`, update the bullet list above in the same change —
-> it is the contract for what the agent can assume is available in the
-> container. The Dockerfile's header comment groups are the source of truth;
-> this README list should mirror them exactly.
+## Pi agent
+
+The `pi` service (profile `pi`) runs the Pi terminal coding agent
+(`@earendil-works/pi-coding-agent`, https://pi.dev/docs/latest) in a container.
+It talks to the model-server via the OpenAI-compat endpoint, and its model list
++ per-model sampling come straight from `stack.yaml` via
+`generate-pi-config` (see the mapping table above). The `pi` service is gated
+behind `profiles: [pi]`, so normal `docker compose up` does not start it.
+
+Rebuild after editing `docker/pi.Dockerfile` (see [Agent containers](#agent-containers)
+for the shared base build):
+
+```bash
+docker compose --profile pi build pi
+```
 
 ```bash
 # (re)generate the Pi config from stack.yaml when the roster changes
@@ -358,6 +417,47 @@ provider is `bob-stack`; the default model is `pi.default_model` from
 `stack.yaml` (falls back to the first `models:` entry if unset). Inside the
 Pi TUI, `/model` lists every stack model and `/model <name>` selects one; the
 model-server auto-loads its preset on demand.
+
+## OpenCode agent
+
+The `opencode` service (profile `opencode`) runs the OpenCode agent
+(`opencode-ai`, https://opencode.ai) in a container. It talks to the
+model-server via the OpenAI-compat endpoint; its provider, model list, and
+web UI server settings come straight from `stack.yaml` via
+`generate-opencode-config` (see the mapping table above). The `opencode` service
+is gated behind `profiles: [opencode]`, so normal `docker compose up` does not
+start it. The web UI is exposed on host port `8008`.
+
+Rebuild after editing `docker/opencode.Dockerfile` (see [Agent containers](#agent-containers)
+for the shared base build):
+
+```bash
+docker compose --profile opencode build opencode
+```
+
+```bash
+# (re)generate the OpenCode config from stack.yaml when the roster changes
+python3 scripts/bootstrap.py generate-opencode-config
+
+# start the headless OpenCode server with the web UI on port 8008
+docker compose --profile opencode up -d opencode
+
+# view logs
+docker compose --profile opencode logs -f opencode
+
+# one-shot CLI run inside the container
+docker compose --profile opencode run --rm opencode run \
+    -m llama-server/Qwen3.5-4B-NoThink \
+    "Reply with exactly: PONG"
+```
+
+OpenCode's config dir (`config/opencode/`, containing `opencode.json`) is
+mounted as `~/.config/opencode` and persists on the host, so anything OpenCode
+writes there (auth, session state, …) survives restarts. The default provider is
+`llama-server`; the default model is `opencode.default_model` from `stack.yaml`
+(falls back to the first `models:` entry if unset). Multimodal models
+(`card.multimodal: true`) advertise both text and image input in the generated
+`opencode.json`.
 
 ## Pi agent modifications
 
@@ -397,15 +497,15 @@ where it lives, and how it's maintained.
 - **Where:** baked into the image at `/etc/tmux.conf`, symlinked from
   `/root/.tmux.conf`. Built into the image layer (not host-mounted), so a
   bind-mount over `~/.pi/agent` or `/workspace` cannot clobber it.
-- **How maintained:** edit `/etc/tmux.conf` in `docker/pi.Dockerfile` and
+- **How maintained:** edit `/etc/tmux.conf` in `docker/base.Dockerfile` and
   rebuild. Requires tmux ≥ 3.5 (trixie ships 3.5a).
 
 ### default editor / shell env
 
 - **What:** `EDITOR=vim` / `VISUAL=vim` (Ctrl+G external editor), `PAGER=less`
   with `LESS=FRX`, `GIT_TERMINAL_PROMPT=0` (git fails loudly on missing creds
-  instead of hanging the agent). Set in `docker/pi.Dockerfile` via `ENV`.
-- **How maintained:** edit the `ENV` block in the Dockerfile and rebuild.
+  instead of hanging the agent). Set in `docker/base.Dockerfile` via `ENV`.
+- **How maintained:** edit the `ENV` block in `docker/base.Dockerfile` and rebuild.
 
 ### gh CLI auth storage
 
@@ -428,16 +528,17 @@ where it lives, and how it's maintained.
 
 ### Docker socket access (k3d / docker compose)
 
-- **What:** the `pi` service mounts the host Docker socket at
-  `/var/run/docker.sock`. The image ships the Docker CLI (+ buildx, compose
-  plugins). On start, `pi-entrypoint` (running as root) adds the `agent` user to
-  the socket's owning GID, then drops privileges with `gosu` before launching
-  Pi — so `docker`, `docker compose`, and `k3d cluster create` work as the
-  non-root agent user.
+- **What:** the `pi` and `opencode` services mount the host Docker socket at
+  `/var/run/docker.sock`. The base image ships the Docker CLI (+ buildx, compose
+  plugins). On start, each agent entrypoint (running as root) adds the `agent`
+  user to the socket's owning GID, then drops privileges with `gosu` before
+  launching the agent — so `docker`, `docker compose`, and `k3d cluster create`
+  work as the non-root agent user.
 - **Where:** `docker-compose.yaml` volume mount;
-  `docker/docker-socket-setup.sh` + `docker/pi-entrypoint.sh`.
+  `docker/docker-socket-setup.sh` + `docker/pi-entrypoint.sh` +
+  `docker/opencode-entrypoint.sh`.
 - **How maintained:** socket mount is in compose; GID fixup is in the entrypoint
-  scripts. Rebuild after editing `docker/pi.Dockerfile` if you change the Docker
+  scripts. Rebuild after editing `docker/base.Dockerfile` if you change the Docker
   CLI install.
 
 ## Model cards and sampling recommendations
@@ -463,9 +564,11 @@ repetition loops on reasoning models — keep `temp ≥ 0.6` and the
   compose mount exposes to the server). There's no path to hand-edit or
   accidentally clobber a separate `config.ini`.
 - `generate-pi-config` only ever writes `config/pi/{models,settings}.json`.
+- `generate-opencode-config` only ever writes `config/opencode/opencode.json`.
 - `download` never overwrites an existing local file unless `--force` is passed.
 - `download --verify` reports size mismatches (vs Hugging Face) without
   deleting or re-fetching; you delete the file yourself to trigger a clean
   re-download. No per-file `size:` is required in `stack.yaml`.
-- The `model-downloader` and `pi` services are opt-in (`--profile download` /
-  `--profile pi`); normal `docker compose up` starts only `model-server`.
+- The `model-downloader`, `pi`, and `opencode` services are opt-in
+  (`--profile download` / `--profile pi` / `--profile opencode`); normal
+  `docker compose up` starts only `model-server`.
