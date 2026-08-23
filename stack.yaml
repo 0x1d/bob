@@ -26,15 +26,9 @@
 stack:
   host_models_dir: ./models            # host path mounted into llama-server
   container_models_dir: /models        # path inside the llama-server container
-  host_config_dir: ./config            # host dir holding the generated preset + pi config
+  host_config_dir: ./config            # host dir holding the generated preset + opencode config
   container_config_path: /config/config.ini
   generated_config_name: config.generated.ini   # the preset the llama-server mounts
-
-pi:
-  provider: bob-stack                # provider key written into pi models.json
-  base_url: http://model-server:6060/v1  # OpenAI-compat endpoint reachable from the pi container (compose network)
-  default_model: Qwen3.5-2B-Uncensored-Q4_K_M  # model name (from `models:` below) selected by default in /model
-  # api_key_env: BOB_API_KEY          # optional; unset => dummy "none" (server has no auth)
 
 opencode:
   provider: llama-server             # provider key written into opencode.json
