@@ -1,11 +1,10 @@
 # Bob
 
 Bob is a self-improving AI system based on Pi agent.  
-The OpenCode agent teaches the Pi agent.
 
 ## Configuration
 
-Single YAML file (`stack.yaml`) is the source of truth for which models to download, how to configure them in the model-server, and how to expose them to Pi and OpenCode coding agents. Python generator (`scripts/bootstrap.py`) turns that into a model-server preset, a Pi `models.json`, and an OpenCode `opencode.json`. Docker sidecars fetch model files and run agents.
+`stack.yaml` is the source of truth for which models to download, how to configure them in the model-server, and how to expose them to Pi and OpenCode coding agents. Python generator (`scripts/bootstrap.py`) turns that into a model-server preset, a Pi `models.json`, and an OpenCode `opencode.json`. Docker sidecars fetch model files and run agents.
 
 ## Control Surface
 
@@ -33,7 +32,7 @@ workspace/
     └── model-downloader.Dockerfile
 ```
 
-## Workflow
+## Setup
 
 1. **Generate configs** — `ctl.sh generate-config`, `ctl.sh generate-pi-config`, `ctl.sh generate-opencode-config`
 2. **Download models** — `ctl.sh download`
@@ -86,9 +85,9 @@ All three agents share `bob-agent-base` image (Node 24-trixie-slim with curated 
 
 | Model | Card recommends |
 |-------|------------------|
-| Qwen3.5-4B-NoThink | non-thinking: temp 0.7 / top-p 0.8; ≥128K ctx; multimodal; MTP support |
-| Qwen3.5-9B-Uncensored-Q4_K_M | thinking: temp 0.6 / top-p 0.95 / top-k 20; ≥128K ctx; multimodal; MTP |
-| Qwopus3.5-9B-Coder-MTP-Q4_K_M | temp 1.0 / top-p 0.95 / top-k 20; MTP draft=2 (speculative); reasoning; multimodal; tool calling |
+| Qwen3.5-4B-NoThink | non-thinking: temp 0.7 / top-p 0.8; ≥128K ctx; multimodal; MTP support; anti-loop guardrail repeat-penalty 1.05 |
+| Qwen3.5-9B-Uncensored-Q4_K_M | thinking: temp 0.6 / top-p 0.95 / top-k 20; ≥128K ctx; multimodal; MTP; anti-loop guardrail repeat-penalty 1.05 |
+| Qwopus3.5-9B-Coder-MTP-Q4_K_M | temp 1.0 / top-p 0.95 / top-k 20; MTP draft=2 (speculative); reasoning; multimodal; tool calling; anti-loop guardrail repeat-penalty 1.05 |
 | Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K | temp 0.6 / top-p 0.95 / top-k 20 / repeat-penalty 1.05; 1M ctx via YaRN; reasoning; multimodal; tool calling |
 
 All cards warn: greedy/very-low-temp degenerates into repetition loops on reasoning models — keep `temp ≥ 0.6`.
