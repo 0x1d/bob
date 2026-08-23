@@ -2,7 +2,15 @@
 
 Web search and page fetch (HTML → Markdown) for Bob agents.
 
-No third-party dependencies. Uses Node's built-in `fetch` and `dns`.
+Clean, focused implementation inspired by [@opencode-ai/web](https://github.com/anomalyco/opencode).
+
+## Features
+
+- **Web Search**: DuckDuckGo Instant Answer API + autocomplete fallback
+- **Page Fetch**: SSRF-protected HTTP/HTTPS with HTML→Markdown conversion
+- **Policy Enforcement**: Allow/block lists for registrable domains
+- **Smart Truncation**: Respects `maxChars` with graceful truncation markers
+- **Retry Support**: Configurable backoff retries on network failures
 
 ## Install
 
@@ -24,7 +32,7 @@ const search = await searchWeb({
 });
 //   -> { results: [{ title, url, snippet, raw }], count, query }
 
-// Fetch a URL with SSRF protection and HTML→Markdown conversion.
+// Fetch a URL with SSRF protection and HTML → Markdown conversion.
 const page = await fetchUrl({
   url: 'https://example.com',
   maxChars: 8000,
