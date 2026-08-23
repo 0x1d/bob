@@ -88,32 +88,5 @@ services:
     depends_on:
       - model-server
 
-  # OpenCode agent (https://opencode.ai), pointed at the model-server's
-  # OpenAI-compat endpoint. Config (opencode.json) is generated from stack.yaml:
-  #   python3 scripts/bootstrap.py generate-opencode-config
-  # and mounted into ~/.config/opencode. The web UI is exposed on host port 8008.
-  # Start with:
-  #   docker compose --profile opencode up -d opencode
-  opencode:
-    profiles: ["opencode"]
-    build:
-      context: ./docker
-      dockerfile: opencode.Dockerfile
-    ports:
-      - "8008:8008"
-    working_dir: /workspace
-    volumes:
-      - ./config/opencode:/home/agent/.config/opencode
-      - ./config/opencode-data:/home/agent/.local/share/opencode
-      - ./:/workspace
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - OPENCODE_CONFIG=/home/agent/.config/opencode/opencode.json
-      - OPENCODE_DATA_DIR=/home/agent/.local/share/opencode
-    gpus: all            # so nvtop / CUDA tooling can see the device
-    runtime: nvidia
-    depends_on:
-      - model-server
-
 volumes:
   pi-workspace:

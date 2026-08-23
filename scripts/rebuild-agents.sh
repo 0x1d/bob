@@ -3,9 +3,9 @@
 set -e
 
 # @cmd: rebuild-agents
-# @desc: Rebuild agent images in order (base -> pi -> opencode)
+# @desc: Rebuild agent images in order (base -> pi)
 
 HF_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Rebuild agent images in order: base → pi → opencode
+# Rebuild agent images in order: base → pi
 "${HF_ROOT}/build-agents.sh"

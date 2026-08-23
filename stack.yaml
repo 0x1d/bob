@@ -36,15 +36,6 @@ pi:
   default_model: Qwen3.5-2B-Uncensored-Q4_K_M  # model name (from `models:` below) selected by default in /model
   # api_key_env: BOB_API_KEY          # optional; unset => dummy "none" (server has no auth)
 
-opencode:
-  provider: llama-server             # provider key written into opencode.json
-  base_url: http://model-server:6060/v1  # OpenAI-compat endpoint reachable from the opencode container
-  default_model: Qwen3.5-2B-Uncensored-Q4_K_M  # default model selected on first launch
-  # api_key_env: BOB_API_KEY          # optional; unset => no key (server has no auth)
-  server:
-    port: 8008
-    hostname: "0.0.0.0"
-
 huggingface:
   token_env: HF_TOKEN                   # read token from this env var (optional)
   base_url: https://huggingface.co

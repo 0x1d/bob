@@ -1,10 +1,10 @@
 FROM node:24-trixie-slim
 
 # base: Node 24 LTS (v24.19.x) on Debian 13 (trixie).
-# This image is the shared foundation for all Bob agent containers (Pi,
-# OpenCode, and any future CLI agents). It ships a curated dev / research /
-# analysis toolset so agents can edit, build, inspect, and probe local and
-# remote systems from inside the container.
+# This image is the shared foundation for Bob agent containers (Pi and any
+# future CLI agents). It ships a curated dev / research / analysis toolset so
+# agents can edit, build, inspect, and probe local and remote systems from
+# inside the container.
 #
 # NOTE: the grouped comment blocks below are the source of truth for the tool
 # list. README.md ("Agent containers" > toolset bullets) MUST be updated in the
@@ -12,7 +12,7 @@ FROM node:24-trixie-slim
 # README list is the contract for what every agent container can assume is
 # available.
 #
-# Agent-specific packages (e.g. @earendil-works/pi-coding-agent, opencode-ai)
+# Agent-specific packages (e.g. @earendil-works/pi-coding-agent)
 # are layered on top in their own Dockerfiles.
 
 # apt layer (one install + cleanup for a smaller image):
@@ -82,7 +82,7 @@ RUN curl -fsSL https://github.com/Syllo/nvtop/releases/download/${NVTOP_VERSION}
 
 # rtk — Rust Token Killer (https://rtk-ai.app). Compresses CLI command output
 # (~60-90% fewer tokens) before it reaches the model's context window. Pi wires
-# it up via an auto-installed extension; OpenCode can call it directly.
+# it up via an auto-installed extension.
 ARG RTK_VERSION=v0.45.0
 RUN curl -fsSL https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/rtk-x86_64-unknown-linux-musl.tar.gz \
       -o /tmp/rtk.tgz \

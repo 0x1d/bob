@@ -3,7 +3,7 @@
 set -e
 
 # @cmd: start
-# @desc: Start model-server and opencode
+# @desc: Start model-server
 
-# Start model-server and opencode agent.
-docker compose --profile opencode up -d model-server opencode
+# Start model-server. The Pi agent is interactive — launch it with `./ctl.sh pi`.
+docker compose up -d model-server
