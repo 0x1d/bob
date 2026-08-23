@@ -33,13 +33,13 @@ stack:
 pi:
   provider: bob-stack                # provider key written into pi models.json
   base_url: http://model-server:6060/v1  # OpenAI-compat endpoint reachable from the pi container (compose network)
-  default_model: Qwopus3.5-9B-Coder-MTP-Q4_K_M  # model name (from `models:` below) selected by default in /model
+  default_model: Qwen3.5-2B-Uncensored-Q4_K_M  # model name (from `models:` below) selected by default in /model
   # api_key_env: BOB_API_KEY          # optional; unset => dummy "none" (server has no auth)
 
 opencode:
   provider: llama-server             # provider key written into opencode.json
   base_url: http://model-server:6060/v1  # OpenAI-compat endpoint reachable from the opencode container
-  default_model: Qwopus3.5-9B-Coder-MTP-Q4_K_M  # default model selected on first launch
+  default_model: Qwen3.5-2B-Uncensored-Q4_K_M  # default model selected on first launch
   # api_key_env: BOB_API_KEY          # optional; unset => no key (server has no auth)
   server:
     port: 8008
@@ -55,6 +55,37 @@ huggingface:
 # and is NOT emitted into config.ini.
 # ---------------------------------------------------------------------------
 models:
+
+  - name: Qwen3.5-2B-Uncensored-Q4_K_M
+    dir: Qwen3.5-2B-Uncensored-Q4_K_M
+    repo: HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive
+    quant: Q4_K_M
+    family: qwen3.5
+    thinking: true
+    files:
+      - name: Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+        kind: model
+      - name: mmproj-Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-f16.gguf
+        kind: mmproj
+    settings:
+      ctx-size: 200000
+      temp: 0.6
+      top-p: 0.95
+      top-k: 20
+      min-p: 0
+      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
+      ngl: 100
+      no-prefill-assistant: true
+      cache-type-k: q4_0
+      cache-type-v: q4_0
+    card:
+      url: https://huggingface.co/HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive
+      thinking: {temp: 0.6, top-p: 0.95, top-k: 20, min-p: 0}
+      non-thinking: {temp: 0.7, top-p: 0.8, top-k: 20, min-p: 0}
+      context: 262144 native, 1048576 with YaRN; keep >= 128K to preserve thinking
+      multimodal: true   # requires mmproj alongside main GGUF
+      mtp: true
+      anti-loop: repeat-penalty 1.05 is a stack-level guardrail; qwen3.5 reasoning models degenerate into repetition loops at greedy/T<=0.3 (documented on Qwythos card retest)
 
   - name: Qwen3.5-4B-NoThink
     dir: Qwen3.5-4B-Uncensored-Q4_K_M
@@ -72,6 +103,8 @@ models:
       temp: 0.7
       top-p: 0.8
       top-k: 20
+      min-p: 0
+      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
       ngl: 100
       no-prefill-assistant: true
       cache-type-k: q4_0
@@ -85,6 +118,7 @@ models:
       context: 262144 native, 1048576 with YaRN; keep >= 128K to preserve thinking
       multimodal: true   # requires mmproj alongside main GGUF
       mtp: true
+      anti-loop: repeat-penalty 1.05 is a stack-level guardrail; qwen3.5 reasoning models degenerate into repetition loops at greedy/T<=0.3 (documented on Qwythos card retest)
 
   - name: Qwen3.5-9B-Uncensored-Q4_K_M
     dir: Qwen3.5-9B-Uncensored-Q4_K_M
@@ -102,6 +136,8 @@ models:
       temp: 0.6
       top-p: 0.95
       top-k: 20
+      min-p: 0
+      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
       ngl: 100
       no-prefill-assistant: true
       cache-type-k: q4_0
@@ -113,6 +149,7 @@ models:
       context: 262144 native, 1048576 with YaRN; keep >= 128K to preserve thinking
       multimodal: true
       mtp: true
+      anti-loop: repeat-penalty 1.05 is a stack-level guardrail; qwen3.5 reasoning models degenerate into repetition loops at greedy/T<=0.3 (documented on Qwythos card retest)
 
   - name: Qwopus3.5-9B-Coder-MTP-Q4_K_M
     dir: Qwopus3.5-9B-Coder-MTP-Q4_K_M
@@ -132,6 +169,8 @@ models:
       temp: 1.0
       top-p: 0.95
       top-k: 20
+      min-p: 0
+      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
       ngl: 100
       no-prefill-assistant: true
       cache-type-k: q4_0
@@ -140,6 +179,7 @@ models:
       url: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF
       sampling: {temp: 1.0, top-p: 0.95}
       note: official Qwen3.5 recommendation (temp 1.0); reasoning model ( CoT)
+      anti-loop: upstream benchmark flags repetition/truncation even at recommended settings; MTP mitigates but repeat-penalty 1.05 added as stack-level guardrail (see Qwythos card retest)
       mtp: true       # Multi-Token Prediction, draft=2 (speculative decoding)
       multimodal: true   # vision mmproj alongside main GGUF
       tool-calling: true
@@ -160,7 +200,8 @@ models:
       temp: 0.6
       top-p: 0.95
       top-k: 20
-      repeat-penalty: 1.05
+      min-p: 0
+      repeat-penalty: 1.05   # per card: prevents non-terminating reasoning loops
       ngl: 100
       no-prefill-assistant: true
       cache-type-k: q4_0
