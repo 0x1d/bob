@@ -1,10 +1,10 @@
 # Bob
 
-Bob is a self-improving AI system based on Pi agent.  
+Bob is a self-improving AI system powered by the OpenCode coding agent.  
 
 ## Configuration
 
-`stack.yaml` is the source of truth for which models to download, how to configure them in the model-server, and how to expose them to Pi and OpenCode coding agents. Python generator (`scripts/bootstrap.py`) turns that into a model-server preset, a Pi `models.json`, and an OpenCode `opencode.json`. Docker sidecars fetch model files and run agents.
+`stack.yaml` is the source of truth for which models to download, how to configure them in the model-server, and how to expose them to the OpenCode coding agent. Python generator (`scripts/bootstrap.py`) turns that into a model-server preset and an OpenCode `opencode.json`. Docker sidecars fetch model files and run the agent.
 
 ## Control Surface
 
@@ -17,28 +17,26 @@ Detailed stack / bootstrap / agent reference: [`docs/reference.md`](docs/referen
 ```
 workspace/
 ├── ctl.sh                          # control surface — prefer over direct commands
-├── stack.yaml                      # single source of truth (models + agents)
+├── stack.yaml                      # single source of truth (models + opencode agent)
 ├── config/
 │   ├── config.generated.ini        # generated preset; compose mounts as /config/config.ini
-│   ├── pi/{models,settings}.json   # generated Pi config; mounted as ~/.pi/agent
 │   └── opencode/opencode.json      # generated OpenCode config; mounted as ~/.config/opencode
 ├── models/<model-dir>/*.gguf       # downloaded GGUF + mmproj files
 ├── scripts/                        # ctl.sh commands + bootstrap.py
-├── scripts/build-agents.sh         # builds base → pi → opencode in order
+├── scripts/build-agents.sh         # builds base → opencode in order
 └── docker/
     ├── base.Dockerfile              # shared tooling image (node:24-trixie-slim)
-    ├── pi.Dockerfile                # extends bob-agent-base
     ├── opencode.Dockerfile          # extends bob-agent-base
     └── model-downloader.Dockerfile
 ```
 
 ## Setup
 
-1. **Generate configs** — `ctl.sh generate-config`, `ctl.sh generate-pi-config`, `ctl.sh generate-opencode-config`
+1. **Generate configs** — `ctl.sh generate-config`, `ctl.sh generate-opencode-config`
 2. **Download models** — `ctl.sh download`
-3. **Start server** — `ctl.sh start`
+3. **Start server** — `ctl.sh start` (model-server + opencode web UI)
 4. **Rebuild agents** — `ctl.sh rebuild-agents`
-5. **Run agents** — `ctl.sh` provides profiles for Pi and OpenCode
+5. **Run agent** — `ctl.sh opencode` (interactive TUI; bind-mounts CWD to /workspace). The web UI is also available on host port 8008 via `ctl.sh start`.
 
 ## Key Facts
 
@@ -46,40 +44,36 @@ workspace/
 |------|--------|
 | **Model-server config** | Only ever reads `config/config.generated.ini` (compose mounts it as `/config/config.ini`); no hand-maintained INI to diff |
 | **Download safety** | `download` never overwrites existing local files unless `--force` is passed; `--verify` reports size mismatches without deleting |
-| **Agent images** | Base is `bob-agent-base` (Node 24 + full dev stack); Pi and OpenCode extend it; base must be built first |
-| **Agent config dirs** | Pi: `~/.pi/agent` (auth, model-store cache persist); OpenCode: `~/.config/opencode` (auth, session persist) |
-| **Pi tools** | Auto-installs `rtk` (Rust Token Killer v0.45.0) extension on first launch; tmux `extended-keys` enabled in `/etc/tmux.conf` |
+| **Agent images** | Base is `bob-agent-base` (Node 24 + full dev stack); OpenCode extends it; base must be built first |
+| **Agent config dir** | OpenCode: `~/.config/opencode` (auth, session persist); data at `~/.local/share/opencode` |
 | **OpenCode** | Web UI exposed on host port 8008; default model from `opencode.default_model` in `stack.yaml` |
 | **HF token** | `HF_TOKEN` env var forwarded to downloader for gated repos and rate-limit relief |
-| **Default model** | Falls back to the first `models:` entry in `stack.yaml` if `pi.default_model` / `opencode.default_model` unset |
-| **Profile services** | `model-downloader` and `pi` are gated behind `--profile` flags; normal `docker compose up` starts only `model-server` |
+| **Default model** | Falls back to the first `models:` entry in `stack.yaml` if `opencode.default_model` unset |
+| **Profile services** | `model-downloader` and `opencode` are gated behind `--profile` flags; normal `docker compose up` starts only `model-server` |
 
 ## Gotchas
 
 - **Never overwrite existing models** — `download` respects existing local files by default; use `--force` only when intentionally re-fetching
-- **Rebuild base before agents** — agent Dockerfiles extend `bob-agent-base`; building pi/opencode alone will fail until base exists
+- **Rebuild base before agents** — agent Dockerfiles extend `bob-agent-base`; building opencode alone will fail until base exists
 - **HF token for gated repos** — export `HF_TOKEN` before running the downloader sidecar if models require auth
 - **Size mismatches are reported, not fixed** — `download --verify` prints `exists (size X != expected Y; leaving file, remove it to re-download)` and keeps the local file; you must delete and re-download if you want a clean fetch
-- **Pi tmux config is baked in** — `extended-keys` config is in `/etc/tmux.conf` (image layer); host mount overrides cannot clobber it
 - **OpenCode port 8008** — the web UI binds to `0.0.0.0:8008` by default; this is exposed on the host when running with `--profile opencode`
 
 ## Architecture
 
-The system is a 4-containers compose with profile gating:
+The system is a 3-containers compose with profile gating:
 
 ```
 model-server ──network──▶ model-downloader (profile: download)
       │
-      ├── OpenAI-compat──▶ pi (profile: pi)
       └── OpenAI-compat──▶ opencode (profile: opencode)
 ```
 
 - **model-server** — llama.cpp model server, config driven by `config/config.generated.ini`
 - **model-downloader** — pure Python + pyyaml sidecar; mounts `./models:/models`, `./config:/config`
-- **pi** — Pi terminal coding agent; uses `bob-stack` provider pointing at `opencode.base_url`
 - **opencode** — OpenCode agent; uses `llama-server` provider, web UI on `0.0.0.0:8008`
 
-All three agents share `bob-agent-base` image (Node 24-trixie-slim with curated dev/research toolset).
+The agent container shares the `bob-agent-base` image (Node 24-trixie-slim with curated dev/research toolset).
 
 ## Model Cards (per `stack.yaml` `card:` blocks)
 

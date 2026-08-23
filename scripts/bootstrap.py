@@ -3,11 +3,10 @@
 
 Single source of truth lives in `stack.yaml`. This tool:
 
-    bootstrap.py generate-config       -> write a llama-server models-preset INI
-    bootstrap.py generate-pi-config    -> write Pi agent models.json/settings.json
+    bootstrap.py generate-config          -> write a llama-server models-preset INI
     bootstrap.py generate-opencode-config -> write OpenCode opencode.json
-    bootstrap.py download              -> fetch every missing GGUF/mmproj from HF
-    bootstrap.py status                 -> print presence/size of every model file
+    bootstrap.py download                 -> fetch every missing GGUF/mmproj from HF
+    bootstrap.py status                   -> print presence/size of every model file
 
 Expected file sizes for verification are looked up from Hugging Face on demand
 (when --verify is passed) — no per-file `size:` needs to be recorded in
@@ -104,94 +103,6 @@ def cmd_generate_config(args) -> int:
     out_path.write_text(text, encoding="utf-8")
     print(f"wrote {out_path} ({out_path.stat().st_size} bytes, "
           f"{len(stack['models'])} models)")
-    return 0
-
-
-# --------------------------------------------------------------------------
-# generate-pi-config  (Pi terminal coding agent — https://pi.dev/docs/latest)
-# --------------------------------------------------------------------------
-# Maps each stack.yaml model to a Pi custom provider entry
-# (~/.pi/agent/models.json). Pi connects to the llama-server's OpenAI-compat
-# endpoint; per-model sampling from stack.yaml is carried into `samplingParams`
-# (merged verbatim into every request body by Pi).
-_PI_KV_MAP = {
-    "temp": "temperature",
-    "top-p": "top_p",
-    "top-k": "top_k",
-    "min-p": "min_p",
-    "repeat-penalty": "repeat_penalty",
-}
-
-
-def _pi_model_entry(m: dict) -> dict:
-    s = m.get("settings", {})
-    sampling = {_PI_KV_MAP[k]: s[k] for k in _PI_KV_MAP if k in s}
-    entry: dict = {
-        "id": m["name"],          # llama-server preset id == stack.yaml name
-        "name": m["name"],
-        "reasoning": bool(m.get("thinking", False)),
-    }
-    if "ctx-size" in s:
-        entry["contextWindow"] = int(s["ctx-size"])
-    rb = s.get("reasoning-budget")
-    if isinstance(rb, (int, float)) and not isinstance(rb, bool) and rb > 0:
-        entry["maxTokens"] = int(rb)
-    if sampling:
-        entry["samplingParams"] = sampling
-    return entry
-
-
-def cmd_generate_pi_config(args) -> int:
-    here = args.config.parent.resolve()
-    stack = load_stack(args.config)
-    paths = resolve_host_paths(stack, here, args.models_dir, args.config_dir)
-    pi = stack.get("pi", {})
-    provider_key = pi.get("provider", "bob-stack")
-    base_url = pi.get("base_url", "http://model-server:6060/v1")
-    api_key_env = pi.get("api_key_env", "")
-
-    known_names = [m["name"] for m in stack["models"]]
-    default_model = pi.get("default_model")
-    if default_model and default_model not in known_names:
-        sys.exit(f"pi.default_model '{default_model}' is not a model name in "
-                 f"stack.yaml (known: {known_names})")
-    if not default_model and known_names:
-        default_model = known_names[0]
-
-    out_dir = paths["host_config_dir"] / "pi"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    models_json = {
-        "providers": {
-            provider_key: {
-                "baseUrl": base_url,
-                "api": "openai-completions",
-                # server has no auth; dummy so Pi shows the models in /model
-                "apiKey": f"${api_key_env}" if api_key_env else "none",
-                "compat": {
-                    "supportsDeveloperRole": False,
-                    "supportsReasoningEffort": False,
-                },
-                "models": [_pi_model_entry(m) for m in stack["models"]],
-            }
-        }
-    }
-    with (out_dir / "models.json").open("w", encoding="utf-8") as fh:
-        json.dump(models_json, fh, indent=2, ensure_ascii=False)
-        fh.write("\n")
-
-    settings_json = {
-        "defaultProvider": provider_key,
-        "defaultModel": default_model,
-        "defaultThinkingLevel": "off",
-    }
-    with (out_dir / "settings.json").open("w", encoding="utf-8") as fh:
-        json.dump(settings_json, fh, indent=2, ensure_ascii=False)
-        fh.write("\n")
-
-    print(f"wrote {out_dir/'models.json'} and {out_dir/'settings.json'} "
-          f"({len(stack['models'])} models, provider={provider_key}, "
-          f"base_url={base_url})")
     return 0
 
 
@@ -473,11 +384,6 @@ def main(argv=None) -> int:
                        help="write config/config.generated.ini (the preset "
                             "the llama-server mounts)")
     g.set_defaults(func=cmd_generate_config)
-
-    pg = sub.add_parser("generate-pi-config",
-                        help="write config/pi/{models,settings}.json for the "
-                             "Pi agent from the model roster in stack.yaml")
-    pg.set_defaults(func=cmd_generate_pi_config)
 
     og = sub.add_parser("generate-opencode-config",
                         help="write config/opencode/opencode.json for the "

@@ -1,10 +1,9 @@
 # Bob
 
-Bob is a self-improving AI system based on Pi agent.  
-The OpenCode agent teaches the Pi agent.
+Bob is a self-improving AI system powered by the OpenCode coding agent.  
 
 ```
-stack.yaml ──generate-*──▶ config/* ──mount──▶ model-server / pi / opencode
+stack.yaml ──generate-*──▶ config/* ──mount──▶ model-server / opencode
                 │
                 └──download──▶ models/*.gguf
 ```
@@ -22,7 +21,6 @@ Edit only `stack.yaml`, then:
 cd /home/master/src/bob
 
 ./ctl.sh generate-config
-./ctl.sh generate-pi-config
 ./ctl.sh generate-opencode-config
 ./ctl.sh download
 ./ctl.sh start
@@ -37,7 +35,15 @@ Useful checks:
 ./ctl.sh stop
 ```
 
-Rebuild agent images (base → pi → opencode) with `./ctl.sh rebuild-agents`.
+Run the agent (interactive TUI, bind-mounts CWD to /workspace):
+
+```bash
+./ctl.sh opencode
+```
+
+The web UI is also available on host port 8008 via `./ctl.sh start`.
+
+Rebuild agent images (base → opencode) with `./ctl.sh rebuild-agents`.
 
 ## Repository layout
 
@@ -48,7 +54,6 @@ bob/
 ├── AGENTS.md                        # agent session entrypoint
 ├── config/
 │   ├── config.generated.ini         # model-server preset (mounted as /config/config.ini)
-│   ├── pi/{models,settings}.json    # Pi agent config
 │   └── opencode/opencode.json       # OpenCode config
 ├── models/<model-dir>/*.gguf
 ├── scripts/                         # ctl.sh command implementations + bootstrap.py
@@ -62,13 +67,12 @@ bob/
 ```
 model-server ──network──▶ model-downloader (profile: download)
       │
-      ├── OpenAI-compat──▶ pi (profile: pi)
       └── OpenAI-compat──▶ opencode (profile: opencode)
 ```
 
 - **model-server** — llama.cpp; reads generated `config.generated.ini`
 - **model-downloader** — fetches GGUF/mmproj files (opt-in profile)
-- **pi** / **opencode** — coding agents on `bob-agent-base`; configs from `stack.yaml`
+- **opencode** — OpenCode coding agent on `bob-agent-base`; config from `stack.yaml`
 
 ## Documentation
 

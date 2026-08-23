@@ -1,10 +1,10 @@
 FROM node:24-trixie-slim
 
 # base: Node 24 LTS (v24.19.x) on Debian 13 (trixie).
-# This image is the shared foundation for all Bob agent containers (Pi,
-# OpenCode, and any future CLI agents). It ships a curated dev / research /
-# analysis toolset so agents can edit, build, inspect, and probe local and
-# remote systems from inside the container.
+# This image is the shared foundation for Bob agent containers (OpenCode and
+# any future CLI agents). It ships a curated dev / research / analysis toolset
+# so agents can edit, build, inspect, and probe local and remote systems from
+# inside the container.
 #
 # NOTE: the grouped comment blocks below are the source of truth for the tool
 # list. README.md ("Agent containers" > toolset bullets) MUST be updated in the
@@ -12,7 +12,7 @@ FROM node:24-trixie-slim
 # README list is the contract for what every agent container can assume is
 # available.
 #
-# Agent-specific packages (e.g. @earendil-works/pi-coding-agent, opencode-ai)
+# Agent-specific packages (e.g. opencode-ai)
 # are layered on top in their own Dockerfiles.
 
 # apt layer (one install + cleanup for a smaller image):
@@ -81,8 +81,8 @@ RUN curl -fsSL https://github.com/Syllo/nvtop/releases/download/${NVTOP_VERSION}
     && chmod +x /usr/local/bin/nvtop
 
 # rtk — Rust Token Killer (https://rtk-ai.app). Compresses CLI command output
-# (~60-90% fewer tokens) before it reaches the model's context window. Pi wires
-# it up via an auto-installed extension; OpenCode can call it directly.
+# (~60-90% fewer tokens) before it reaches the model's context window. OpenCode
+# can call it directly.
 ARG RTK_VERSION=v0.45.0
 RUN curl -fsSL https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/rtk-x86_64-unknown-linux-musl.tar.gz \
       -o /tmp/rtk.tgz \
@@ -174,10 +174,10 @@ RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/te
     && command -v kubectx kubens >/dev/null
 
 # tmux config so modified keys (Shift+Enter, Ctrl+Enter, Alt+Enter) survive
-# inside a tmux session under Pi. Per https://pi.dev/docs/latest/tmux this is
-# the recommended setup; requires tmux >= 3.5 (trixie ships 3.5a).
+# inside a tmux session. Requires tmux >= 3.5 (trixie ships 3.5a).
 # Ships as a system file at /etc/tmux.conf and symlinked into the agent user's
-# home (below) so a bind-mount over /workspace or ~/.pi/agent never clobbers it.
+# home (below) so a bind-mount over /workspace or the agent config dir never
+# clobbers it.
 RUN printf 'set -g extended-keys on\nset -g extended-keys-format csi-u\n' \
       > /etc/tmux.conf
 
