@@ -1,0 +1,106 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "llama-server/Qwen3.5-2B-Uncensored-Q4_K_M",
+  "small_model": "llama-server/Qwen3.5-2B-Uncensored-Q4_K_M",
+  "server": {
+    "port": 8008,
+    "hostname": "0.0.0.0"
+  },
+  "provider": {
+    "llama-server": {
+      "name": "llama-server",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://model-server:6060/v1"
+      },
+      "models": {
+        "Qwen3.5-2B-Uncensored-Q4_K_M": {
+          "name": "Qwen3.5-2B-Uncensored-Q4_K_M",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "reasoning": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "Qwen3.5-4B-NoThink": {
+          "name": "Qwen3.5-4B-NoThink",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "Qwen3.5-9B-Uncensored-Q4_K_M": {
+          "name": "Qwen3.5-9B-Uncensored-Q4_K_M",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "reasoning": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "Qwopus3.5-9B-Coder-MTP-Q4_K_M": {
+          "name": "Qwopus3.5-9B-Coder-MTP-Q4_K_M",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "reasoning": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        },
+        "Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K": {
+          "name": "Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K",
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "reasoning": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          }
+        }
+      }
+    }
+  },
+  "mcp": {
+    "browsermcp": {
+      "type": "local",
+      "command": [
+        "npx",
+        "@browsermcp/mcp@latest"
+      ],
+      "enabled": true
+    }
+  }
+}

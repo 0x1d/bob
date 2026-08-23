@@ -4,7 +4,7 @@ models/
 # Generated llama-server preset, Pi agent config, runtime state, and secrets.
 # Regenerated from stack.yaml (generate-config / generate-pi-config) or created
 # at runtime by the pi agent (auth.json, sessions/, models-store.json, gh/, …).
-config/
+./config/
 
 # Environment files — HF_TOKEN, API keys, local overrides
 .env
@@ -25,6 +25,9 @@ docker-compose.override.yaml
 *.key
 id_rsa
 id_ed25519
+
+# Node
+node_modules/
 
 # Python
 __pycache__/

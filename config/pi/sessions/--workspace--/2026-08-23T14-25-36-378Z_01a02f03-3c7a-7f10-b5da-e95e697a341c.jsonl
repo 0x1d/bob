@@ -1,0 +1,5 @@
+{"type":"session","version":3,"id":"01a02f03-3c7a-7f10-b5da-e95e697a341c","timestamp":"2026-08-23T14:25:36.378Z","cwd":"/workspace"}
+{"type":"model_change","id":"fbd19a26","parentId":null,"timestamp":"2026-08-23T14:25:36.502Z","provider":"bob-stack","modelId":"Qwen3.5-2B-Uncensored-Q4_K_M"}
+{"type":"thinking_level_change","id":"7fe5fff5","parentId":"fbd19a26","timestamp":"2026-08-23T14:25:36.502Z","thinkingLevel":"off"}
+{"type":"message","id":"688344c0","parentId":"7fe5fff5","timestamp":"2026-08-23T14:25:40.371Z","message":{"role":"user","content":[{"type":"text","text":"hello"}],"timestamp":1787495140368}}
+{"type":"message","id":"daf81eef","parentId":"688344c0","timestamp":"2026-08-23T14:25:40.448Z","message":{"role":"assistant","content":[],"api":"openai-completions","provider":"bob-stack","model":"Qwen3.5-2B-Uncensored-Q4_K_M","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":0,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"error","timestamp":1787495140423,"errorMessage":"400: {\"code\":400,\"message\":\"model 'Qwen3.5-2B-Uncensored-Q4_K_M' not found\",\"type\":\"invalid_request_error\"}"}}

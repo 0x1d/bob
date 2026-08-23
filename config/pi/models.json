@@ -1,0 +1,80 @@
+{
+  "providers": {
+    "bob-stack": {
+      "baseUrl": "http://model-server:6060/v1",
+      "api": "openai-completions",
+      "apiKey": "none",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "Qwen3.5-2B-Uncensored-Q4_K_M",
+          "name": "Qwen3.5-2B-Uncensored-Q4_K_M",
+          "reasoning": true,
+          "contextWindow": 200000,
+          "samplingParams": {
+            "temperature": 0.6,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0,
+            "repeat_penalty": 1.05
+          }
+        },
+        {
+          "id": "Qwen3.5-4B-NoThink",
+          "name": "Qwen3.5-4B-NoThink",
+          "reasoning": false,
+          "contextWindow": 200000,
+          "samplingParams": {
+            "temperature": 0.7,
+            "top_p": 0.8,
+            "top_k": 20,
+            "min_p": 0,
+            "repeat_penalty": 1.05
+          }
+        },
+        {
+          "id": "Qwen3.5-9B-Uncensored-Q4_K_M",
+          "name": "Qwen3.5-9B-Uncensored-Q4_K_M",
+          "reasoning": true,
+          "contextWindow": 200000,
+          "samplingParams": {
+            "temperature": 0.6,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0,
+            "repeat_penalty": 1.05
+          }
+        },
+        {
+          "id": "Qwopus3.5-9B-Coder-MTP-Q4_K_M",
+          "name": "Qwopus3.5-9B-Coder-MTP-Q4_K_M",
+          "reasoning": true,
+          "contextWindow": 200000,
+          "samplingParams": {
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0,
+            "repeat_penalty": 1.05
+          }
+        },
+        {
+          "id": "Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K",
+          "name": "Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K",
+          "reasoning": true,
+          "contextWindow": 200000,
+          "samplingParams": {
+            "temperature": 0.6,
+            "top_p": 0.95,
+            "top_k": 20,
+            "min_p": 0,
+            "repeat_penalty": 1.05
+          }
+        }
+      ]
+    }
+  }
+}
