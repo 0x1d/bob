@@ -83,6 +83,7 @@ The agent container shares the `bob-agent-base` image (Node 24-trixie-slim with 
 | Qwen3.5-9B-Uncensored-Q4_K_M | thinking: temp 0.6 / top-p 0.95 / top-k 20; ≥128K ctx; multimodal; MTP; anti-loop guardrail repeat-penalty 1.05 |
 | Qwopus3.5-9B-Coder-MTP-Q4_K_M | temp 1.0 / top-p 0.95 / top-k 20; MTP draft=2 (speculative); reasoning; multimodal; tool calling; anti-loop guardrail repeat-penalty 1.05 |
 | Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K | temp 0.6 / top-p 0.95 / top-k 20 / repeat-penalty 1.05; 1M ctx via YaRN; reasoning; multimodal; tool calling |
+| Ternary-Bonsai-2-27B-PQ2_0 | thinking: temp 1.0 / top-p 0.95 / top-k 20 / repeat-penalty 1.0; 262K ctx; multimodal (Q8_0 mmproj); tool calling; **requires PrismML llama.cpp fork** |
 
 All cards warn: greedy/very-low-temp degenerates into repetition loops on reasoning models — keep `temp ≥ 0.6`.
 
