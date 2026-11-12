@@ -3,7 +3,6 @@
 set -e
 
 # @cmd: stop
-# @desc: Stop the model-server
+# @desc: Stop services (default: model-server and opencode)
 
-# Stop the model-server
-docker compose stop model-server
+docker compose --profile opencode stop "$@"

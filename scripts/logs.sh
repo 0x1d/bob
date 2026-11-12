@@ -3,7 +3,9 @@
 set -e
 
 # @cmd: logs
-# @desc: Tail model-server logs
+# @desc: Tail service logs (default: model-server; e.g. `logs opencode`)
 
-# Tail model-server logs
-docker compose logs -f model-server
+if [ "$#" -eq 0 ]; then
+  set -- model-server
+fi
+docker compose --profile opencode logs -f "$@"

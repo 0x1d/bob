@@ -3,10 +3,10 @@
 
 Single source of truth lives in `stack.yaml`. This tool:
 
-    bootstrap.py generate-config          -> write a llama-server models-preset INI
-    bootstrap.py generate-opencode-config -> write OpenCode opencode.json
-    bootstrap.py download                 -> fetch every missing GGUF/mmproj from HF
-    bootstrap.py status                   -> print presence/size of every model file
+    bootstrap.py generate -> write the llama-server models-preset INI and the
+                             OpenCode 2 opencode.json
+    bootstrap.py download -> fetch every missing GGUF/mmproj from HF
+    bootstrap.py status   -> print presence/size of every model file
 
 Expected file sizes for verification are looked up from Hugging Face on demand
 (when --verify is passed) — no per-file `size:` needs to be recorded in
@@ -75,7 +75,7 @@ def _fmt_value(v) -> str:
 
 
 # --------------------------------------------------------------------------
-# generate-config
+# generate: llama-server models-preset
 # --------------------------------------------------------------------------
 def cmd_generate_config(args) -> int:
     here = args.config.parent.resolve()
@@ -107,29 +107,42 @@ def cmd_generate_config(args) -> int:
 
 
 # --------------------------------------------------------------------------
-# generate-opencode-config  (OpenCode agent — https://opencode.ai)
+# generate: opencode.json  (OpenCode agent — https://opencode.ai)
 # --------------------------------------------------------------------------
-# Maps each stack.yaml model to an OpenCode custom provider entry
-# (~/.config/opencode/opencode.json). OpenCode connects to the llama-server's
-# OpenAI-compat endpoint; multimodal models (card.multimodal) advertise both
-# text and image input. Thinking models set reasoning + interleaved so
-# OpenCode surfaces llama.cpp's reasoning_content and replays it on later turns
-# (https://opencode.ai/docs/models/, opencode.ai/config.json).
+# Writes the native OpenCode 2 config shape (https://opencode.ai/docs/config/,
+# /docs/providers/, /docs/models/). Each stack.yaml model becomes an entry of
+# one custom provider served through OpenCode's OpenAI-compatible runtime
+# against the llama-server endpoint:
+#   * capabilities.input adds "image" for multimodal models (card.multimodal)
+#   * limit.context mirrors the llama-server ctx-size (or fit-ctx) so OpenCode
+#     compacts before the server-side window overflows
+#   * thinking models set capabilities.reasoning and
+#     compatibility.reasoningField so llama.cpp's reasoning_content is surfaced
+#     and replayed on later turns
+_OPENCODE_OUTPUT_LIMIT = 32000  # OpenCode's own fallback for custom models
+
+
 def _opencode_model_entry(m: dict) -> dict:
     entry: dict = {
         "name": m["name"],  # llama-server preset id == stack.yaml name
-        "modalities": {
+        "capabilities": {
+            "tools": True,
             "input": ["text"],
             "output": ["text"],
         },
     }
     if m.get("card", {}).get("multimodal"):
-        entry["modalities"]["input"].append("image")
+        entry["capabilities"]["input"].append("image")
+    settings = m.get("settings", {})
+    context = settings.get("ctx-size") or settings.get("fit-ctx")
+    if context:
+        entry["limit"] = {
+            "context": int(context),
+            "output": min(_OPENCODE_OUTPUT_LIMIT, int(context) // 4),
+        }
     if m.get("thinking"):
-        # capability flag + field used by @ai-sdk/openai-compatible /
-        # llama-server (--reasoning-format deepseek → reasoning_content)
-        entry["reasoning"] = True
-        entry["interleaved"] = {"field": "reasoning_content"}
+        entry["capabilities"]["reasoning"] = {"supported": True}
+        entry["compatibility"] = {"reasoningField": "reasoning_content"}
     return entry
 
 
@@ -141,7 +154,6 @@ def cmd_generate_opencode_config(args) -> int:
     provider_key = opencode.get("provider", "llama-server")
     base_url = opencode.get("base_url", "http://model-server:6060/v1")
     api_key_env = opencode.get("api_key_env", "")
-    server = opencode.get("server", {"port": 8008, "hostname": "0.0.0.0"})
 
     known_names = [m["name"] for m in stack["models"]]
     default_model = opencode.get("default_model")
@@ -156,28 +168,26 @@ def cmd_generate_opencode_config(args) -> int:
 
     provider_cfg: dict = {
         "name": provider_key,
-        "npm": "@ai-sdk/openai-compatible",
-        "options": {"baseURL": base_url},
+        "package": "@opencode/ai/providers/openai-compatible",
+        "settings": {"baseURL": base_url},
         "models": {m["name"]: _opencode_model_entry(m)
                    for m in stack["models"]},
     }
     if api_key_env:
-        provider_cfg["options"]["apiKey"] = f"{{env:{api_key_env}}}"
+        provider_cfg["settings"]["apiKey"] = f"{{env:{api_key_env}}}"
 
     opencode_json: dict = {
         "$schema": "https://opencode.ai/config.json",
         "model": f"{provider_key}/{default_model}",
-        "small_model": f"{provider_key}/{default_model}",
-        "server": server,
-        "provider": {provider_key: provider_cfg},
-        "mcp": {
-            "browsermcp": {
-                "type": "local",
-                "command": ["npx", "@browsermcp/mcp@latest"],
-                "enabled": True,
-            }
-        },
+        # V1 `small_model` is the built-in title agent's model in V2.
+        "agents": {"title": {"model": f"{provider_key}/{default_model}"}},
+        "providers": {provider_key: provider_cfg},
     }
+    # Passed through verbatim from stack.yaml so they stay editable there.
+    if opencode.get("permissions"):
+        opencode_json["permissions"] = opencode["permissions"]
+    if opencode.get("mcp_servers"):
+        opencode_json["mcp"] = {"servers": opencode["mcp_servers"]}
     with (out_dir / "opencode.json").open("w", encoding="utf-8") as fh:
         json.dump(opencode_json, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
@@ -186,6 +196,10 @@ def cmd_generate_opencode_config(args) -> int:
           f"provider={provider_key}, base_url={base_url}, "
           f"default={default_model})")
     return 0
+
+
+def cmd_generate(args) -> int:
+    return cmd_generate_config(args) or cmd_generate_opencode_config(args)
 
 
 # --------------------------------------------------------------------------
@@ -380,15 +394,11 @@ def main(argv=None) -> int:
                    help="override host_config_dir (e.g. /config in the sidecar)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    g = sub.add_parser("generate-config",
+    g = sub.add_parser("generate",
                        help="write config/config.generated.ini (the preset "
-                            "the llama-server mounts)")
-    g.set_defaults(func=cmd_generate_config)
-
-    og = sub.add_parser("generate-opencode-config",
-                        help="write config/opencode/opencode.json for the "
-                             "OpenCode agent from the model roster in stack.yaml")
-    og.set_defaults(func=cmd_generate_opencode_config)
+                            "the llama-server mounts) and "
+                            "config/opencode/opencode.json")
+    g.set_defaults(func=cmd_generate)
 
     d = sub.add_parser("download", help="fetch missing model files from HF")
     d.add_argument("--force", action="store_true",

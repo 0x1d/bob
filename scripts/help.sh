@@ -5,26 +5,17 @@ set -euo pipefail
 # @cmd: help
 # @desc: Show available commands
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIPTS_DIR="${ROOT_DIR}/scripts"
-
-if [ ! -d "${SCRIPTS_DIR}" ]; then
-  printf 'Unable to read scripts directory: %s\n' "${SCRIPTS_DIR}" >&2
-  exit 1
-fi
+SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 printf 'Bob - Self-Bootstrapping llama.cpp Deployment\n\n'
 printf 'Usage: ./ctl.sh COMMAND [ARGS...]\n\n'
 
-awk '
-  FNR == 1 { cmd = ""; desc = "" }
-  /^# @cmd: / { cmd = substr($0, 9) }
-  /^# @desc: / { desc = substr($0, 10) }
-  ENDFILE {
-    if (cmd != "") {
-      printf "%s\t%s\n", cmd, desc
-    }
-  }
-' "${SCRIPTS_DIR}"/*.sh | sort | while IFS=$'\t' read -r cmd desc; do
-  printf '%-24s %s\n' "${cmd}" "${desc}"
-done
+# Plain sed so this works with any awk/sed (the previous gawk-only ENDFILE
+# version printed nothing on mawk/busybox).
+for script in "${SCRIPTS_DIR}"/*.sh; do
+  cmd="$(sed -n 's/^# @cmd: //p' "${script}" | head -n 1)"
+  desc="$(sed -n 's/^# @desc: //p' "${script}" | head -n 1)"
+  if [ -n "${cmd}" ]; then
+    printf '%-12s %s\n' "${cmd}" "${desc}"
+  fi
+done | sort
