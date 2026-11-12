@@ -20,5 +20,9 @@ if [ ! -x "${SCRIPT}" ]; then
   exit 1
 fi
 
+# Commands use repo-relative paths (docker compose, stack.yaml), so run them
+# from the repo root regardless of where ctl.sh was invoked.
+cd "${HF_ROOT}"
+
 # Execute the capability script, replacing the current shell
 exec "${SCRIPT}" "${@:2}"

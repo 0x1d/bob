@@ -1,79 +1,39 @@
 # Bob
 
-Bob is a self-improving AI system powered by the OpenCode coding agent.  
-
-## Configuration
-
-`stack.yaml` is the source of truth for which models to download, how to configure them in the model-server, and how to expose them to the OpenCode coding agent. Python generator (`scripts/bootstrap.py`) turns that into a model-server preset and an OpenCode `opencode.json`. Docker sidecars fetch model files and run the agent.
+Bob is a self-improving AI system powered by the OpenCode 2 coding agent.
+[`README.md`](README.md) is the canonical description of the stack (commands,
+services, layout, configuration); this file adds the rules for agent sessions.
 
 ## Control Surface
 
 All system operations are performed via `ctl.sh`, the centralized control surface. Agents must interact through `ctl.sh` rather than invoking commands directly. Run `./ctl.sh help` to list available commands and their descriptions.
 
-Detailed stack / bootstrap / agent reference: [`docs/reference.md`](docs/reference.md).
-
-## Repo Layout
-
-```
-workspace/
-├── ctl.sh                          # control surface — prefer over direct commands
-├── stack.yaml                      # single source of truth (models + opencode agent)
-├── config/
-│   ├── config.generated.ini        # generated preset; compose mounts as /config/config.ini
-│   └── opencode/opencode.json      # generated OpenCode config; mounted as ~/.config/opencode
-├── models/<model-dir>/*.gguf       # downloaded GGUF + mmproj files
-├── scripts/                        # ctl.sh commands + bootstrap.py
-├── scripts/build-agents.sh         # builds base → opencode in order
-└── docker/
-    ├── base.Dockerfile              # shared tooling image (node:24-trixie-slim)
-    ├── opencode.Dockerfile          # extends bob-agent-base
-    └── model-downloader.Dockerfile
-```
-
-## Setup
-
-1. **Generate configs** — `ctl.sh generate-config`, `ctl.sh generate-opencode-config`
-2. **Download models** — `ctl.sh download`
-3. **Start server** — `ctl.sh start` (model-server + opencode web UI)
-4. **Rebuild agents** — `ctl.sh rebuild-agents`
-5. **Run agent** — `ctl.sh opencode` (interactive TUI; bind-mounts CWD to /workspace). The web UI is also available on host port 8008 via `ctl.sh start`.
+`stack.yaml` is the single source of truth: `ctl.sh generate` turns it into the model-server preset and the OpenCode `opencode.json`. Never edit files under `config/` by hand.
 
 ## Key Facts
 
 | Fact | Detail |
 |------|--------|
 | **Model-server config** | Only ever reads `config/config.generated.ini` (compose mounts it as `/config/config.ini`); no hand-maintained INI to diff |
+| **Generated on start** | `ctl.sh start` runs `generate` first, so the running stack always matches `stack.yaml` |
 | **Download safety** | `download` never overwrites existing local files unless `--force` is passed; `--verify` reports size mismatches without deleting |
-| **Agent images** | Base is `bob-agent-base` (Node 24 + full dev stack); OpenCode extends it; base must be built first |
-| **Agent config dir** | OpenCode: `~/.config/opencode` (auth, session persist); data at `~/.local/share/opencode` |
-| **OpenCode** | Web UI exposed on host port 8008; default model from `opencode.default_model` in `stack.yaml` |
-| **HF token** | `HF_TOKEN` env var forwarded to downloader for gated repos and rate-limit relief |
-| **Default model** | Falls back to the first `models:` entry in `stack.yaml` if `opencode.default_model` unset |
-| **Profile services** | `model-downloader` and `opencode` are gated behind `--profile` flags; normal `docker compose up` starts only `model-server` |
+| **Agent image** | One image, `docker/opencode.Dockerfile` (Node 24 + small utilities + OpenCode 2); build with `ctl.sh build` |
+| **OpenCode version** | `@opencode/cli`, pinned by `OPENCODE_VERSION` in `docker/opencode.Dockerfile`; `opencode.json` uses the native V2 shape (`providers`, `permissions`, `mcp.servers`) |
+| **OpenCode dirs** | Config at `~/.config/opencode` (host `config/opencode`), data at `~/.local/share/opencode` (host `config/opencode-data`) |
+| **Web UI / TUI** | `opencode serve` on port 8008; `ctl.sh opencode` attaches a TUI to that same server; password from `OPENCODE_PASSWORD` or `config/opencode/server-password` |
+| **Default model** | `opencode.default_model` in `stack.yaml`; falls back to the first `models:` entry |
+| **Shared model settings** | Common settings/cards live under `x-shared:` in `stack.yaml` and are pulled in with YAML merge keys (`<<: *name`) |
+| **HF token** | `HF_TOKEN` env var forwarded to the downloader for gated repos and rate-limit relief |
+| **Profile services** | `model-downloader` and `opencode` are gated behind `--profile` flags; plain `docker compose up` starts only `model-server` |
 
 ## Gotchas
 
 - **Never overwrite existing models** — `download` respects existing local files by default; use `--force` only when intentionally re-fetching
-- **Rebuild base before agents** — agent Dockerfiles extend `bob-agent-base`; building opencode alone will fail until base exists
-- **HF token for gated repos** — export `HF_TOKEN` before running the downloader sidecar if models require auth
 - **Size mismatches are reported, not fixed** — `download --verify` prints `exists (size X != expected Y; leaving file, remove it to re-download)` and keeps the local file; you must delete and re-download if you want a clean fetch
-- **OpenCode port 8008** — the web UI binds to `0.0.0.0:8008` by default; this is exposed on the host when running with `--profile opencode`
-
-## Architecture
-
-The system is a 3-containers compose with profile gating:
-
-```
-model-server ──network──▶ model-downloader (profile: download)
-      │
-      └── OpenAI-compat──▶ opencode (profile: opencode)
-```
-
-- **model-server** — llama.cpp model server, config driven by `config/config.generated.ini`
-- **model-downloader** — pure Python + pyyaml sidecar; mounts `./models:/models`, `./config:/config`
-- **opencode** — OpenCode agent; uses `llama-server` provider, web UI on `0.0.0.0:8008`
-
-The agent container shares the `bob-agent-base` image (Node 24-trixie-slim with curated dev/research toolset).
+- **Ports are localhost-only** — 6060 and 8008 are published on `127.0.0.1` unless `BOB_BIND` is set; the opencode container has the host Docker socket, so do not widen this casually
+- **Port 8008 is not in `opencode.json`** — `opencode serve` binds `0.0.0.0:8008` inside the container (set in `docker/opencode.Dockerfile`); V2 ignores a `server` config block
+- **No compilers in the agent image** — `build-essential`, kubectl, terraform and similar are deliberately absent; add them in a derived image rather than the shared Dockerfile
+- **Outside-workspace access asks first** — `opencode.permissions` in `stack.yaml` sets `external_directory` to `ask`
 
 ## Model Cards (per `stack.yaml` `card:` blocks)
 
@@ -83,13 +43,13 @@ The agent container shares the `bob-agent-base` image (Node 24-trixie-slim with 
 | Qwen3.5-9B-Uncensored-Q4_K_M | thinking: temp 0.6 / top-p 0.95 / top-k 20; ≥128K ctx; multimodal; MTP; anti-loop guardrail repeat-penalty 1.05 |
 | Qwopus3.5-9B-Coder-MTP-Q4_K_M | temp 1.0 / top-p 0.95 / top-k 20; MTP draft=2 (speculative); reasoning; multimodal; tool calling; anti-loop guardrail repeat-penalty 1.05 |
 | Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-Q6_K | temp 0.6 / top-p 0.95 / top-k 20 / repeat-penalty 1.05; 1M ctx via YaRN; reasoning; multimodal; tool calling |
-| Ternary-Bonsai-2-27B-PQ2_0 | thinking: temp 1.0 / top-p 0.95 / top-k 20 / repeat-penalty 1.0; 262K ctx; multimodal (Q8_0 mmproj); tool calling; **requires PrismML llama.cpp fork** |
+| Ternary-Bonsai-2-27B-PQ2_0 (commented out in `stack.yaml`) | thinking: temp 1.0 / top-p 0.95 / top-k 20 / repeat-penalty 1.0; 262K ctx; multimodal (Q8_0 mmproj); tool calling; **requires PrismML llama.cpp fork** |
 
 All cards warn: greedy/very-low-temp degenerates into repetition loops on reasoning models — keep `temp ≥ 0.6`.
 
 ## Documentation Standards
 
-The `docs/` folder follows a 7-stage lifecycle:
+The `docs/` folder (created on first use; it does not exist yet) follows a 7-stage lifecycle:
 
 1. **Research** (`docs/research/`) — document concepts, cite and link sources, link to specs
 2. **Specs** (`docs/specs/`) — define what needs to be built, interfaces, success criteria

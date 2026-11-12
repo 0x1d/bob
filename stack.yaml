@@ -3,7 +3,8 @@
 # ----------------------------------------------------------------------------
 # This file abstracts config/config.ini AND describes how to download every
 # model. The bootstrap generator (scripts/bootstrap.py) reads this file and:
-#   * `generate-config` -> writes a llama-server models-preset (config.ini)
+#   * `generate`        -> writes a llama-server models-preset (config.ini)
+#                          and the OpenCode 2 config (opencode/opencode.json)
 #   * `download`        -> fetches every missing GGUF/mmproj from HF
 #   * `status`          -> reports presence/size of every declared file
 #
@@ -11,7 +12,7 @@
 #   [name]              = model.name
 #   model               = {container_models_dir}/{dir}/{files[model]}
 #   mmproj              = {container_models_dir}/{dir}/{files[mmproj]}
-#   every key under `settings` -> `key = value` line (order preserved)
+#   every key under `settings` -> `key = value` line
 #
 # The top level is split into concerns so it can grow beyond a model server.
 # `models:` is the llama-server model roster (downloaded + configured here).
@@ -35,18 +36,55 @@ opencode:
   base_url: http://model-server:6060/v1  # OpenAI-compat endpoint reachable from the opencode container
   default_model: Qwen3.5-2B-Uncensored-Q4_K_M  # default model selected on first launch
   # api_key_env: BOB_API_KEY          # optional; unset => no key (server has no auth)
-  server:
-    port: 8008
-    hostname: "0.0.0.0"
+  # The web UI bind address/port (0.0.0.0:8008 inside the container) is set by
+  # `opencode serve` in docker/opencode.Dockerfile; OpenCode 2 ignores a
+  # `server` block in opencode.json.
+
+  # Ordered OpenCode 2 permission rules, written verbatim to opencode.json
+  # (https://opencode.ai/docs/permissions/). V2 allows access outside the
+  # project directory by default; this restores the V1 "ask first" behaviour.
+  permissions:
+    - {action: external_directory, resource: "*", effect: ask}
+
+  # MCP servers, written verbatim to opencode.json `mcp.servers`
+  # (https://opencode.ai/docs/mcp-servers/). None by default. Example:
+  #   playwright:
+  #     type: local
+  #     command: [npx, "@playwright/mcp@0.0.41"]   # pin versions
+  mcp_servers: {}
 
 huggingface:
   token_env: HF_TOKEN                   # read token from this env var (optional)
   base_url: https://huggingface.co
 
 # ---------------------------------------------------------------------------
-# Models. `settings` order is preserved verbatim in the generated config.ini.
-# `card` documents the upstream recommendation + source URL for traceability
-# and is NOT emitted into config.ini.
+# Shared blocks, referenced from `models:` with YAML merge keys (`<<: *name`).
+# Keys set on a model override the shared value. This section is only a home
+# for anchors; bootstrap.py does not read it directly.
+# ---------------------------------------------------------------------------
+x-shared:
+  qwen35-settings: &qwen35_settings
+    ctx-size: 200000
+    top-k: 20
+    min-p: 0
+    repeat-penalty: 1.05   # anti-loop guardrail (Qwythos card: prevents non-terminating reasoning loops)
+    ngl: 100
+    no-prefill-assistant: true
+    cache-type-k: q4_0
+    cache-type-v: q4_0
+
+  hauhau-qwen35-card: &hauhau_qwen35_card
+    thinking: {temp: 0.6, top-p: 0.95, top-k: 20, min-p: 0}
+    non-thinking: {temp: 0.7, top-p: 0.8, top-k: 20, min-p: 0}
+    context: 262144 native, 1048576 with YaRN; keep >= 128K to preserve thinking
+    multimodal: true   # requires mmproj alongside main GGUF
+    mtp: true
+    anti-loop: repeat-penalty 1.05 is a stack-level guardrail; qwen3.5 reasoning models degenerate into repetition loops at greedy/T<=0.3 (documented on Qwythos card retest)
+
+# ---------------------------------------------------------------------------
+# Models. `card` documents the upstream recommendation + source URL for
+# traceability and is NOT emitted into config.ini (card.multimodal does drive
+# image input in opencode.json).
 # ---------------------------------------------------------------------------
 models:
 
@@ -62,24 +100,12 @@ models:
       - name: mmproj-Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-f16.gguf
         kind: mmproj
     settings:
-      ctx-size: 200000
+      <<: *qwen35_settings
       temp: 0.6
       top-p: 0.95
-      top-k: 20
-      min-p: 0
-      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
-      ngl: 100
-      no-prefill-assistant: true
-      cache-type-k: q4_0
-      cache-type-v: q4_0
     card:
+      <<: *hauhau_qwen35_card
       url: https://huggingface.co/HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive
-      thinking: {temp: 0.6, top-p: 0.95, top-k: 20, min-p: 0}
-      non-thinking: {temp: 0.7, top-p: 0.8, top-k: 20, min-p: 0}
-      context: 262144 native, 1048576 with YaRN; keep >= 128K to preserve thinking
-      multimodal: true   # requires mmproj alongside main GGUF
-      mtp: true
-      anti-loop: repeat-penalty 1.05 is a stack-level guardrail; qwen3.5 reasoning models degenerate into repetition loops at greedy/T<=0.3 (documented on Qwythos card retest)
 
   - name: Qwen3.5-4B-NoThink
     dir: Qwen3.5-4B-Uncensored-Q4_K_M
@@ -93,26 +119,14 @@ models:
       - name: mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
         kind: mmproj
     settings:
-      ctx-size: 200000
+      <<: *qwen35_settings
       temp: 0.7
       top-p: 0.8
-      top-k: 20
-      min-p: 0
-      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
-      ngl: 100
-      no-prefill-assistant: true
-      cache-type-k: q4_0
-      cache-type-v: q4_0
       chat-template-kwargs: {enable_thinking: false}
       reasoning-budget: 0
     card:
+      <<: *hauhau_qwen35_card
       url: https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive
-      thinking: {temp: 0.6, top-p: 0.95, top-k: 20, min-p: 0}
-      non-thinking: {temp: 0.7, top-p: 0.8, top-k: 20, min-p: 0}
-      context: 262144 native, 1048576 with YaRN; keep >= 128K to preserve thinking
-      multimodal: true   # requires mmproj alongside main GGUF
-      mtp: true
-      anti-loop: repeat-penalty 1.05 is a stack-level guardrail; qwen3.5 reasoning models degenerate into repetition loops at greedy/T<=0.3 (documented on Qwythos card retest)
 
   - name: Qwen3.5-9B-Uncensored-Q4_K_M
     dir: Qwen3.5-9B-Uncensored-Q4_K_M
@@ -126,24 +140,12 @@ models:
       - name: mmproj-Qwen3.5-9B-Uncensored-HauhauCS-Aggressive-BF16.gguf
         kind: mmproj
     settings:
-      ctx-size: 200000
+      <<: *qwen35_settings
       temp: 0.6
       top-p: 0.95
-      top-k: 20
-      min-p: 0
-      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
-      ngl: 100
-      no-prefill-assistant: true
-      cache-type-k: q4_0
-      cache-type-v: q4_0
     card:
+      <<: *hauhau_qwen35_card
       url: https://huggingface.co/HauhauCS/Qwen3.5-9B-Uncensored-HauhauCS-Aggressive
-      thinking: {temp: 0.6, top-p: 0.95, top-k: 20, min-p: 0}
-      non-thinking: {temp: 0.7, top-p: 0.8, top-k: 20, min-p: 0}
-      context: 262144 native, 1048576 with YaRN; keep >= 128K to preserve thinking
-      multimodal: true
-      mtp: true
-      anti-loop: repeat-penalty 1.05 is a stack-level guardrail; qwen3.5 reasoning models degenerate into repetition loops at greedy/T<=0.3 (documented on Qwythos card retest)
 
   - name: Qwopus3.5-9B-Coder-MTP-Q4_K_M
     dir: Qwopus3.5-9B-Coder-MTP-Q4_K_M
@@ -159,16 +161,9 @@ models:
         remote: mmproj-F32.gguf    # upstream name differs from local name
         kind: mmproj
     settings:
-      ctx-size: 200000
+      <<: *qwen35_settings
       temp: 1.0
       top-p: 0.95
-      top-k: 20
-      min-p: 0
-      repeat-penalty: 1.05   # anti-loop guardrail (see Qwythos card retest)
-      ngl: 100
-      no-prefill-assistant: true
-      cache-type-k: q4_0
-      cache-type-v: q4_0
     card:
       url: https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-MTP-GGUF
       sampling: {temp: 1.0, top-p: 0.95}
@@ -190,16 +185,9 @@ models:
       - name: Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-mmproj-BF16.gguf
         kind: mmproj
     settings:
-      ctx-size: 200000
+      <<: *qwen35_settings
       temp: 0.6
       top-p: 0.95
-      top-k: 20
-      min-p: 0
-      repeat-penalty: 1.05   # per card: prevents non-terminating reasoning loops
-      ngl: 100
-      no-prefill-assistant: true
-      cache-type-k: q4_0
-      cache-type-v: q4_0
     card:
       url: https://huggingface.co/llmfan46/Qwythos-9B-Claude-Mythos-5-1M-uncensored-heretic-GGUF
       sampling: {temp: 0.6, top-p: 0.95, top-k: 20, repetition_penalty: 1.05, max_new_tokens: 16384}

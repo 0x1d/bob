@@ -2,7 +2,7 @@
 models/
 
 # Generated llama-server preset, OpenCode agent config, runtime state, and secrets.
-# Regenerated from stack.yaml (generate-config / generate-opencode-config) or
+# Regenerated from stack.yaml (`./ctl.sh generate`) or
 # created at runtime by the opencode agent (opencode.db, log/, snapshot/, …).
 config/
 
