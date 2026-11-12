@@ -1,7 +1,6 @@
 # Bob
 
-Bob is a self-improving AI system powered by the OpenCode 2 coding agent,
-running against local models served by llama.cpp.
+Download, configure and serve local language models.  
 
 ```mermaid
 flowchart LR
