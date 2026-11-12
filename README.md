@@ -79,8 +79,7 @@ bob/
 │   ├── opencode/                  # opencode.json, server-password
 │   └── opencode-data/             # OpenCode sessions and state
 ├── models/<model-dir>/*.gguf      # downloaded weights (gitignored)
-├── AGENTS.md                # rules and gotchas for agent sessions
-└── principles.md
+└── AGENTS.md                # rules and gotchas for agent sessions
 ```
 
 ## Services
